@@ -1,0 +1,26 @@
+# RepoVision Backend Dependencies
+
+# Core Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+
+# Database
+sqlite-utils>=3.35.0
+sqlmodel>=0.0.22
+
+# Docker SDK (for Janitor Agent sandbox)
+docker>=7.0.0
+
+# Code Analysis (Tree-sitter)
+tree-sitter>=0.23.0
+tree-sitter-python>=0.23.0
+
+# LLM (Groq via OpenAI-compatible API)
+openai>=1.0.0
+
+# Development
+python-dotenv>=1.0.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0
