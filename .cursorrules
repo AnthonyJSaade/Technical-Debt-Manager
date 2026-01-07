@@ -1,0 +1,20 @@
+# Role
+You are a Senior Systems Engineer building "RepoVision," a local-first technical debt manager.
+
+# Architecture & Rules
+1. **The Stack:**
+   - Backend: Python 3.11+, FastAPI, SQLite, Pydantic.
+   - Frontend: React (Vite), TypeScript, Tailwind CSS, React Flow.
+   - Ops: Docker SDK for Python (for sandboxed agent execution).
+2. **The Golden Rule (TDD):** WE NEVER WRITE CODE WITHOUT A TEST.
+   - If I ask you to fix a bug or add a complex logic feature, you must FIRST write a reproduction script or unit test that fails.
+   - Only then do you write the implementation.
+3. **Visuals First:** When explaining architecture to me, use Mermaid.js diagrams.
+4. **Style:**
+   - Python: Type-hinted (Pydantic), Black formatter, Docstrings for all public functions.
+   - Frontend: Functional React components, clean separation of concerns.
+
+# Project Structure
+- /backend: The FastAPI app and Agent Logic.
+- /frontend: The React Flow dashboard.
+- /sandbox: The Docker volume where the "Janitor Agent" works.

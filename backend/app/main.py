@@ -16,6 +16,7 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -90,6 +91,12 @@ class FileAnalysisResponse(BaseModel):
     file_path: str
     complexity_score: int
     node_count: int
+    cognitive_complexity: int
+    halstead_volume: float
+    maintainability_index: float
+    sqale_debt_hours: float
+    lines_of_code: int
+    description: str | None = None  # Module-level docstring
     last_analyzed: datetime
 
 
@@ -151,6 +158,82 @@ class ApplyFixResponse(BaseModel):
     message: str
 
 
+class DownloadFixRequest(BaseModel):
+    """Request model for downloading a fix as a file."""
+
+    file_path: str
+    fixed_code: str
+
+
+class DiagnoseRequest(BaseModel):
+    """Request model for file diagnosis."""
+
+    file_path: str
+
+
+class DiagnoseResponse(BaseModel):
+    """Response model for file diagnosis."""
+
+    is_healthy: bool  # True if code is fundamentally good
+    issue: str  # Main issue or "Code looks good!" if healthy
+    severity: str  # "none", "low", "medium", "high"
+    suggestions: list[str] = []  # Optional minor improvements (shown as subtext)
+
+
+class FileIssue(BaseModel):
+    """A single file issue for the issues panel."""
+
+    file_path: str
+    file_name: str
+    issue: str
+    severity: str  # "low", "medium", "high"
+    cognitive_complexity: int
+    maintainability_index: float
+
+
+class DiagnoseAllResponse(BaseModel):
+    """Response model for batch file diagnosis."""
+
+    issues: list[FileIssue]
+    total_files: int
+    files_with_issues: int
+
+
+class FileContentRequest(BaseModel):
+    """Request model for file content."""
+
+    file_path: str
+
+
+class FileContentResponse(BaseModel):
+    """Response model for file content."""
+
+    content: str
+    file_name: str
+
+
+class BrowseRequest(BaseModel):
+    """Request model for browsing directories."""
+
+    path: str | None = None  # None means home directory
+
+
+class DirectoryEntry(BaseModel):
+    """A single directory entry."""
+
+    name: str
+    path: str
+    is_dir: bool
+
+
+class BrowseResponse(BaseModel):
+    """Response model for directory browsing."""
+
+    current_path: str
+    parent_path: str | None
+    entries: list[DirectoryEntry]
+
+
 # ============================================================================
 # Endpoints
 # ============================================================================
@@ -198,6 +281,12 @@ async def analyze_code(
     if existing:
         existing.complexity_score = result["complexity_score"]
         existing.node_count = result["node_count"]
+        existing.cognitive_complexity = result["cognitive_complexity"]
+        existing.halstead_volume = result["halstead_volume"]
+        existing.maintainability_index = result["maintainability_index"]
+        existing.sqale_debt_hours = result["sqale_debt_hours"]
+        existing.lines_of_code = result["lines_of_code"]
+        existing.description = result.get("description")
         existing.last_analyzed = datetime.now(UTC)
         session.add(existing)
     else:
@@ -205,6 +294,12 @@ async def analyze_code(
             file_path=request.filename,
             complexity_score=result["complexity_score"],
             node_count=result["node_count"],
+            cognitive_complexity=result["cognitive_complexity"],
+            halstead_volume=result["halstead_volume"],
+            maintainability_index=result["maintainability_index"],
+            sqale_debt_hours=result["sqale_debt_hours"],
+            lines_of_code=result["lines_of_code"],
+            description=result.get("description"),
         )
         session.add(file_analysis)
 
@@ -236,6 +331,12 @@ async def list_files(
             file_path=f.file_path,
             complexity_score=f.complexity_score,
             node_count=f.node_count,
+            cognitive_complexity=f.cognitive_complexity,
+            halstead_volume=f.halstead_volume,
+            maintainability_index=f.maintainability_index,
+            sqale_debt_hours=f.sqale_debt_hours,
+            lines_of_code=f.lines_of_code,
+            description=f.description,
             last_analyzed=f.last_analyzed,
         )
         for f in files
@@ -263,10 +364,23 @@ async def scan_project(
     if request.path is None:
         scan_path = str(Path(__file__).parent.parent)
     else:
-        scan_path = request.path
+        # Expand ~ and resolve path
+        scan_path = str(Path(request.path).expanduser().resolve())
+
+    # Validate path exists
+    if not Path(scan_path).exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Directory not found: {scan_path}",
+        )
+
+    # Clear all previous scan data - each scan is a fresh start
+    from sqlalchemy import delete
+    session.exec(delete(FileAnalysis))  # type: ignore[arg-type]
+    session.commit()
 
     # Scan and get results
-    results = scan_directory(scan_path)
+    results = await scan_directory(scan_path)
 
     total_complexity = 0
 
@@ -279,6 +393,12 @@ async def scan_project(
         if existing:
             existing.complexity_score = result["complexity_score"]
             existing.node_count = result["node_count"]
+            existing.cognitive_complexity = result["cognitive_complexity"]
+            existing.halstead_volume = result["halstead_volume"]
+            existing.maintainability_index = result["maintainability_index"]
+            existing.sqale_debt_hours = result["sqale_debt_hours"]
+            existing.lines_of_code = result["lines_of_code"]
+            existing.description = result.get("description")
             existing.last_analyzed = datetime.now(UTC)
             session.add(existing)
         else:
@@ -286,6 +406,12 @@ async def scan_project(
                 file_path=result["file_path"],
                 complexity_score=result["complexity_score"],
                 node_count=result["node_count"],
+                cognitive_complexity=result["cognitive_complexity"],
+                halstead_volume=result["halstead_volume"],
+                maintainability_index=result["maintainability_index"],
+                sqale_debt_hours=result["sqale_debt_hours"],
+                lines_of_code=result["lines_of_code"],
+                description=result.get("description"),
             )
             session.add(file_analysis)
 
@@ -315,7 +441,7 @@ async def test_brain() -> BrainTestResponse:
         BrainTestResponse: Success status and response message.
     """
     try:
-        response = await complete_text("Say 'Hello from Groq!' in exactly those words.")
+        response = await complete_text("Say 'Hello from Claude Opus!' in exactly those words.")
         return BrainTestResponse(success=True, message=response)
     except Exception as e:
         return BrainTestResponse(success=False, message=f"Error: {str(e)}")
@@ -405,3 +531,353 @@ async def apply_fix(request: ApplyFixRequest) -> ApplyFixResponse:
             success=False,
             message=f"Failed to apply fix: {str(e)}",
         )
+
+
+@app.post("/diagnose", response_model=DiagnoseResponse)
+async def diagnose_file(request: DiagnoseRequest) -> DiagnoseResponse:
+    """
+    Diagnose a file for code smells or bugs using LLM.
+
+    Distinguishes between:
+    - Serious issues (bugs, errors) that need fixing
+    - Minor suggestions (style, optimization) that are optional
+    - Clean code that doesn't need changes
+
+    Args:
+        request: The diagnose request with file_path.
+
+    Returns:
+        DiagnoseResponse: The diagnosis with health status and suggestions.
+    """
+    import json
+
+    try:
+        file_path = Path(request.file_path)
+
+        if not file_path.exists():
+            return DiagnoseResponse(
+                is_healthy=False,
+                issue="File not found",
+                severity="high",
+                suggestions=[],
+            )
+
+        code = file_path.read_text(encoding="utf-8")
+
+        # Ask LLM to diagnose with nuanced understanding
+        prompt = f"""You are a Senior Code Reviewer. Analyze this Python code and determine if it needs fixes.
+
+IMPORTANT: Be honest. If the code is functionally correct and well-written, say so. Don't invent problems.
+
+```python
+{code}
+```
+
+Categorize your findings:
+1. SERIOUS ISSUES (severity: high/medium) - Bugs, errors, security issues, crashes, incorrect logic
+2. MINOR SUGGESTIONS (severity: low/none) - Style improvements, optional optimizations, documentation
+
+Respond with ONLY a JSON object in this exact format (no markdown):
+{{
+  "is_healthy": true/false,
+  "issue": "Main issue description OR 'Code looks good!' if healthy",
+  "severity": "none|low|medium|high",
+  "suggestions": ["optional minor improvement 1", "optional minor improvement 2"]
+}}
+
+RULES:
+- Set is_healthy=true if code has NO serious bugs/errors (even if minor improvements exist)
+- Set is_healthy=false ONLY if there are actual bugs, crashes, or serious logic errors
+- severity="none" if code is healthy, "low" for style issues, "medium"/"high" for real bugs
+- suggestions should be optional improvements, not required fixes
+- If code is healthy, issue should be "Code looks good!" or similar positive message
+
+Examples:
+{{"is_healthy": false, "issue": "Division by zero not handled - will crash", "severity": "high", "suggestions": []}}
+{{"is_healthy": true, "issue": "Code looks good!", "severity": "none", "suggestions": ["Consider adding type hints", "Docstring could be more detailed"]}}
+{{"is_healthy": true, "issue": "Code is functional and well-structured", "severity": "none", "suggestions": ["Variable naming could be more descriptive"]}}
+{{"is_healthy": false, "issue": "Infinite loop possible when input is empty", "severity": "medium", "suggestions": []}}"""
+
+        response = await complete_text(prompt)
+
+        # Parse JSON response
+        try:
+            # Clean response of any markdown
+            clean_response = response.strip()
+            if clean_response.startswith("```"):
+                lines = clean_response.split("```")
+                if len(lines) > 1:
+                    clean_response = lines[1]
+                    if clean_response.startswith("json"):
+                        clean_response = clean_response[4:]
+            
+            result = json.loads(clean_response.strip())
+            
+            return DiagnoseResponse(
+                is_healthy=result.get("is_healthy", False),
+                issue=result.get("issue", "Analysis complete"),
+                severity=result.get("severity", "low"),
+                suggestions=result.get("suggestions", []),
+            )
+        except json.JSONDecodeError:
+            # If JSON parsing fails, assume healthy with the raw response as suggestion
+            return DiagnoseResponse(
+                is_healthy=True,
+                issue="Code analyzed - no critical issues found",
+                severity="none",
+                suggestions=[response[:200]] if response else [],
+            )
+
+    except Exception as e:
+        return DiagnoseResponse(
+            is_healthy=False,
+            issue=f"Analysis failed: {str(e)}",
+            severity="medium",
+            suggestions=[],
+        )
+
+
+@app.post("/diagnose-all", response_model=DiagnoseAllResponse)
+async def diagnose_all_files(
+    session: Session = Depends(get_session),
+) -> DiagnoseAllResponse:
+    """
+    Diagnose all analyzed files for bugs and issues.
+
+    Scans all files in the database and identifies those with potential bugs.
+    Returns a prioritized list of issues for the user to address.
+
+    Returns:
+        DiagnoseAllResponse: List of file issues sorted by severity.
+    """
+    import json
+
+    files = session.exec(select(FileAnalysis)).all()
+    issues: list[FileIssue] = []
+
+    for file in files:
+        # Skip files that are already healthy based on MI
+        # Only diagnose files with lower maintainability or high complexity
+        if file.maintainability_index >= 85 and file.cognitive_complexity < 5:
+            continue
+
+        try:
+            file_path = Path(file.file_path)
+            if not file_path.exists():
+                continue
+
+            code = file_path.read_text(encoding="utf-8")
+
+            # Quick diagnosis prompt - focused on bugs only
+            prompt = f"""Analyze this Python code for BUGS ONLY (not style issues).
+
+```python
+{code}
+```
+
+Look for:
+- Division by zero
+- Null/None reference errors
+- Index out of bounds
+- Infinite loops
+- Unhandled exceptions
+- Logic errors
+- Security vulnerabilities
+
+If there are NO bugs, respond with exactly: {{"has_bug": false}}
+
+If there IS a bug, respond with:
+{{"has_bug": true, "issue": "Brief description of the bug", "severity": "low|medium|high"}}
+
+Only respond with JSON, no markdown."""
+
+            response = await complete_text(prompt)
+
+            # Parse response
+            try:
+                clean_response = response.strip()
+                if clean_response.startswith("```"):
+                    lines = clean_response.split("```")
+                    if len(lines) > 1:
+                        clean_response = lines[1]
+                        if clean_response.startswith("json"):
+                            clean_response = clean_response[4:]
+
+                result = json.loads(clean_response.strip())
+
+                if result.get("has_bug", False):
+                    issues.append(FileIssue(
+                        file_path=file.file_path,
+                        file_name=file_path.name,
+                        issue=result.get("issue", "Potential issue detected"),
+                        severity=result.get("severity", "medium"),
+                        cognitive_complexity=file.cognitive_complexity,
+                        maintainability_index=file.maintainability_index,
+                    ))
+            except json.JSONDecodeError:
+                # If parsing fails but response mentions a bug, still include it
+                if "bug" in response.lower() or "error" in response.lower():
+                    issues.append(FileIssue(
+                        file_path=file.file_path,
+                        file_name=file_path.name,
+                        issue=response[:150] if response else "Analysis inconclusive",
+                        severity="medium",
+                        cognitive_complexity=file.cognitive_complexity,
+                        maintainability_index=file.maintainability_index,
+                    ))
+
+        except Exception:
+            continue
+
+    # Sort by severity (high first) then by maintainability index (lower first)
+    severity_order = {"high": 0, "medium": 1, "low": 2}
+    issues.sort(key=lambda x: (severity_order.get(x.severity, 1), x.maintainability_index))
+
+    return DiagnoseAllResponse(
+        issues=issues,
+        total_files=len(files),
+        files_with_issues=len(issues),
+    )
+
+
+@app.post("/file-content", response_model=FileContentResponse)
+async def get_file_content(request: FileContentRequest) -> FileContentResponse:
+    """
+    Get the content of a file.
+
+    Args:
+        request: The request with file_path.
+
+    Returns:
+        FileContentResponse: The file content and name.
+    """
+    try:
+        file_path = Path(request.file_path)
+
+        if not file_path.exists():
+            return FileContentResponse(
+                content="# File not found",
+                file_name=file_path.name,
+            )
+
+        content = file_path.read_text(encoding="utf-8")
+        return FileContentResponse(
+            content=content,
+            file_name=file_path.name,
+        )
+
+    except Exception as e:
+        return FileContentResponse(
+            content=f"# Error reading file: {str(e)}",
+            file_name=Path(request.file_path).name,
+        )
+
+
+@app.post("/download-fix")
+async def download_fix(request: DownloadFixRequest) -> StreamingResponse:
+    """
+    Download the fixed code as a file (Safe Mode).
+
+    Instead of overwriting the original file, this returns the fixed code
+    as a downloadable file with '_fixed' suffix.
+
+    Args:
+        request: The request with file_path and fixed_code.
+
+    Returns:
+        StreamingResponse: The fixed code as a downloadable Python file.
+    """
+    import io
+
+    # Extract original filename and create fixed filename
+    original_path = Path(request.file_path)
+    original_name = original_path.stem  # filename without extension
+    extension = original_path.suffix or ".py"
+    fixed_filename = f"{original_name}_fixed{extension}"
+
+    # Create a file-like object from the fixed code
+    file_content = io.BytesIO(request.fixed_code.encode("utf-8"))
+
+    return StreamingResponse(
+        file_content,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{fixed_filename}"'
+        },
+    )
+
+
+@app.post("/browse", response_model=BrowseResponse)
+async def browse_directory(request: BrowseRequest) -> BrowseResponse:
+    """
+    Browse filesystem directories for folder selection.
+
+    Returns a list of directories and files in the specified path,
+    allowing the frontend to implement a folder picker UI.
+
+    Args:
+        request: The request with optional path. Defaults to home directory.
+
+    Returns:
+        BrowseResponse: Current path, parent path, and list of entries.
+    """
+    import os
+
+    # Default to home directory
+    if request.path is None or request.path == "":
+        current_path = Path.home()
+    else:
+        current_path = Path(request.path).expanduser().resolve()
+
+    # Validate path exists
+    if not current_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Path not found: {current_path}",
+        )
+
+    if not current_path.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Not a directory: {current_path}",
+        )
+
+    # Get parent path (None if at root)
+    parent_path = str(current_path.parent) if current_path.parent != current_path else None
+
+    # List directory contents
+    entries: list[DirectoryEntry] = []
+
+    try:
+        for entry in sorted(current_path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            # Skip hidden files/folders (starting with .)
+            if entry.name.startswith("."):
+                continue
+
+            # Skip common non-project directories
+            if entry.name in {"node_modules", "__pycache__", "venv", ".venv", "env"}:
+                continue
+
+            try:
+                entries.append(
+                    DirectoryEntry(
+                        name=entry.name,
+                        path=str(entry),
+                        is_dir=entry.is_dir(),
+                    )
+                )
+            except PermissionError:
+                # Skip entries we can't access
+                continue
+
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Permission denied: {current_path}",
+        )
+
+    return BrowseResponse(
+        current_path=str(current_path),
+        parent_path=parent_path,
+        entries=entries,
+    )

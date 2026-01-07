@@ -1,26 +1,25 @@
 """
 LLM Brain for the Janitor Agent.
 
-Uses Groq's OpenAI-compatible API with Llama 3 70B.
+Uses Anthropic's Claude 3 Opus model.
 """
 
 import os
 
-from openai import AsyncOpenAI
+from anthropic import AsyncAnthropic
 
-# Groq-compatible OpenAI client
-client = AsyncOpenAI(
-    base_url="https://api.groq.com/openai/v1",
-    api_key=os.getenv("GROQ_API_KEY"),
+# Anthropic client
+client = AsyncAnthropic(
+    api_key=os.getenv("ANTHROPIC_API_KEY"),
 )
 
-# Model configuration (using Llama 3.3 70B - the latest available)
-MODEL = "llama-3.3-70b-versatile"
+# Model configuration (Claude Opus 4.5)
+MODEL = "claude-opus-4-5"
 
 
 async def complete_text(prompt: str) -> str:
     """
-    Generate a text completion using Groq's Llama 3 70B model.
+    Generate a text completion using Claude 3 Opus.
 
     Args:
         prompt: The input prompt to send to the model.
@@ -31,14 +30,13 @@ async def complete_text(prompt: str) -> str:
     Raises:
         Exception: If the API call fails.
     """
-    response = await client.chat.completions.create(
+    response = await client.messages.create(
         model=MODEL,
+        max_tokens=4096,
         messages=[
             {"role": "user", "content": prompt}
         ],
-        temperature=0.7,
-        max_tokens=1024,
     )
 
-    return response.choices[0].message.content or ""
-
+    # Anthropic returns response.content as a list of content blocks
+    return response.content[0].text if response.content else ""

@@ -16,8 +16,8 @@ docker>=7.0.0
 tree-sitter>=0.23.0
 tree-sitter-python>=0.23.0
 
-# LLM (Groq via OpenAI-compatible API)
-openai>=1.0.0
+# LLM (Anthropic Claude)
+anthropic>=0.40.0
 
 # Development
 python-dotenv>=1.0.0

@@ -1,0 +1,37 @@
+# Environment variables
+.env
+*.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Node (frontend)
+node_modules/
+

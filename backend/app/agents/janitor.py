@@ -7,7 +7,7 @@ Implements a Probe -> Fix -> Verify loop using LLM and Docker sandbox.
 import os
 from pathlib import Path
 
-from openai import AsyncOpenAI
+from anthropic import AsyncAnthropic
 
 from app.agents.sandbox import DockerSandbox
 
@@ -69,11 +69,10 @@ class JanitorAgent:
             sandbox: Docker sandbox for safe code execution.
         """
         self.sandbox = sandbox
-        self.llm = AsyncOpenAI(
-            base_url="https://api.groq.com/openai/v1",
-            api_key=os.getenv("GROQ_API_KEY"),
+        self.llm = AsyncAnthropic(
+            api_key=os.getenv("ANTHROPIC_API_KEY"),
         )
-        self.model = "llama-3.3-70b-versatile"
+        self.model = "claude-opus-4-5"
 
     async def _ask_llm(self, system_prompt: str, user_prompt: str) -> str:
         """
@@ -86,16 +85,17 @@ class JanitorAgent:
         Returns:
             The LLM's response text.
         """
-        response = await self.llm.chat.completions.create(
+        response = await self.llm.messages.create(
             model=self.model,
+            max_tokens=4096,
+            system=system_prompt,  # Anthropic uses 'system' parameter
             messages=[
-                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.2,  # Lower temperature for more deterministic fixes
-            max_tokens=4096,
         )
-        return response.choices[0].message.content or ""
+        # Anthropic returns response.content as a list of content blocks
+        return response.content[0].text if response.content else ""
 
     def _clean_code_response(self, response: str) -> str:
         """
