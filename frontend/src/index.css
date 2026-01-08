@@ -1,86 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap');
+
 @import "tailwindcss";
 
-/* Custom CSS Variables for RepoVision Theme */
+/* Custom CSS Variables for Premium Theme */
 :root {
-  --rv-bg-primary: #0a0f1a;
-  --rv-bg-secondary: #111827;
-  --rv-accent: #10b981;
-  --rv-accent-dim: #059669;
-  --rv-text-primary: #f9fafb;
-  --rv-text-secondary: #9ca3af;
-  --rv-border: #1f2937;
+  --rv-bg-primary: #020617;   /* Slate 950 - Deepest background */
+  --rv-bg-secondary: #0f172a; /* Slate 900 - Card background */
+  --rv-accent-glow: #38bdf8;  /* Sky 400 */
+  --rv-text-primary: #f8fafc; /* Slate 50 */
+  --rv-text-secondary: #94a3b8; /* Slate 400 */
+  --rv-border-subtle: rgba(255, 255, 255, 0.08);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--rv-bg-primary);
+  background-color: var(--rv-bg-primary);
+  /* Subtle mesh gradient background */
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.08), transparent 25%), 
+    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%);
   color: var(--rv-text-primary);
+  font-family: 'Outfit', 'Inter', sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
 }
 
 #root {
   min-height: 100vh;
 }
 
-/* Animation keyframes */
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--rv-border-subtle);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-@keyframes pulse-glow {
-  0%, 100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.6;
-  }
+.glass-header {
+  background: rgba(2, 6, 23, 0.8);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--rv-border-subtle);
 }
 
-@keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-/* Utility classes for animations */
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out forwards;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
 }
 
-.animate-slide-up {
-  animation: slide-up 0.4s ease-out forwards;
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
 }
 
-/* Custom scrollbar for terminal log */
-.terminal-scroll::-webkit-scrollbar {
-  width: 8px;
+/* Animations */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.terminal-scroll::-webkit-scrollbar-track {
-  background: #0a0f1a;
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.terminal-scroll::-webkit-scrollbar-thumb {
-  background: #1e3a5f;
-  border-radius: 4px;
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
 }
 
-.terminal-scroll::-webkit-scrollbar-thumb:hover {
-  background: #2563eb;
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
 }

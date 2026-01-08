@@ -36,6 +36,16 @@ janitor_agent = JanitorAgent(sandbox=docker_sandbox)
 async def lifespan(app: FastAPI):
     """Application lifespan handler - initialize DB on startup."""
     init_db()
+    
+    # Clear all previous scan data on startup to ensure empty state
+    from app.db import engine
+    from sqlmodel import delete
+    from app.models import FileAnalysis
+    
+    with Session(engine) as session:
+        session.exec(delete(FileAnalysis))
+        session.commit()
+        
     yield
 
 
@@ -360,6 +370,8 @@ async def scan_project(
     Returns:
         ScanResponse: Count of files scanned and total complexity.
     """
+    import asyncio
+    
     # Default to scanning the backend directory
     if request.path is None:
         scan_path = str(Path(__file__).parent.parent)
@@ -373,48 +385,106 @@ async def scan_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Directory not found: {scan_path}",
         )
+    
+    # ---------------------------------------------------------
+    # 1. CACHE EXISTING DESCRIPTIONS
+    # ---------------------------------------------------------
+    # Fetch all existing records before wiping them
+    existing_files = session.exec(select(FileAnalysis)).all()
+    description_cache = {
+        f.file_path: f.description 
+        for f in existing_files 
+        if f.description and not f.description.startswith("Description unavailable")
+    }
 
     # Clear all previous scan data - each scan is a fresh start
     from sqlalchemy import delete
     session.exec(delete(FileAnalysis))  # type: ignore[arg-type]
     session.commit()
 
-    # Scan and get results
+    # ---------------------------------------------------------
+    # 2. STATIC SCAN (Fast, No LLM)
+    # ---------------------------------------------------------
+    # Scan and get results (now purely static analysis)
     results = await scan_directory(scan_path)
+    
+    # ---------------------------------------------------------
+    # 3. IDENTIFY MISSING DESCRIPTIONS & PREPARE TASKS
+    # ---------------------------------------------------------
+    files_needing_ai: list[dict] = []
+    
+    for result in results:
+        fpath = result["file_path"]
+        
+        # If parser found a docstring, use it (priority)
+        if result["description"] and len(result["description"].strip()) > 10:
+            continue
+            
+        # If we have a cached description from previous run, use it
+        if fpath in description_cache:
+            result["description"] = description_cache[fpath]
+        else:
+            # No docstring AND no cache -> Needs AI
+            files_needing_ai.append(result)
+    
+    # ---------------------------------------------------------
+    # 4. BATCH GENERATE DESCRIPTIONS (Concurrent)
+    # ---------------------------------------------------------
+    if files_needing_ai:
+        # Semaphore for rate limiting
+        sem = asyncio.Semaphore(4)
+        
+        async def generate_for_file(file_result: dict):
+            async with sem:
+                try:
+                    # Read file content
+                    path = Path(file_result["file_path"])
+                    if not path.exists():
+                        return
+                    
+                    content = path.read_text(encoding="utf-8")
+                    if not content.strip(): 
+                        return
 
+                    prompt = (
+                        f"Analyze the following Python file '{path.name}' and provide a VERY BRIEF (1-2 sentences) "
+                        "summary of its purpose. Do not mention specific function names unless critical. "
+                        "Start with 'Handles...', 'Provides...', 'Defines...' etc.\n\n"
+                        f"File Content (truncated):\n{content[:2000]}"
+                    )
+                    
+                    # 10s timeout per file
+                    desc = await complete_text(prompt, timeout=10)
+                    file_result["description"] = desc
+                except Exception:
+                     # Silently fail to "Description unavailable" to not break the scan
+                     file_result["description"] = "Description unavailable (AI skipped)"
+
+        # Run concurrent tasks
+        ai_tasks = [generate_for_file(f) for f in files_needing_ai]
+        # Wait for all to complete (or fail safely)
+        if ai_tasks:
+            await asyncio.gather(*ai_tasks)
+
+    # ---------------------------------------------------------
+    # 5. PERSIST RESULTS
+    # ---------------------------------------------------------
     total_complexity = 0
 
-    # Persist each result (upsert)
     for result in results:
-        existing = session.exec(
-            select(FileAnalysis).where(FileAnalysis.file_path == result["file_path"])
-        ).first()
-
-        if existing:
-            existing.complexity_score = result["complexity_score"]
-            existing.node_count = result["node_count"]
-            existing.cognitive_complexity = result["cognitive_complexity"]
-            existing.halstead_volume = result["halstead_volume"]
-            existing.maintainability_index = result["maintainability_index"]
-            existing.sqale_debt_hours = result["sqale_debt_hours"]
-            existing.lines_of_code = result["lines_of_code"]
-            existing.description = result.get("description")
-            existing.last_analyzed = datetime.now(UTC)
-            session.add(existing)
-        else:
-            file_analysis = FileAnalysis(
-                file_path=result["file_path"],
-                complexity_score=result["complexity_score"],
-                node_count=result["node_count"],
-                cognitive_complexity=result["cognitive_complexity"],
-                halstead_volume=result["halstead_volume"],
-                maintainability_index=result["maintainability_index"],
-                sqale_debt_hours=result["sqale_debt_hours"],
-                lines_of_code=result["lines_of_code"],
-                description=result.get("description"),
-            )
-            session.add(file_analysis)
-
+        file_analysis = FileAnalysis(
+            file_path=result["file_path"],
+            complexity_score=result["complexity_score"],
+            node_count=result["node_count"],
+            cognitive_complexity=result["cognitive_complexity"],
+            halstead_volume=result["halstead_volume"],
+            maintainability_index=result["maintainability_index"],
+            sqale_debt_hours=result["sqale_debt_hours"],
+            lines_of_code=result["lines_of_code"],
+            description=result.get("description"),
+            last_analyzed=datetime.now(UTC)
+        )
+        session.add(file_analysis)
         total_complexity += result["complexity_score"]
 
     session.commit()

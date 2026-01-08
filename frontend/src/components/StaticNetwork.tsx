@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { hierarchy, tree } from "d3-hierarchy";
 import { linkVertical } from "d3-shape";
 import type { FileAnalysis, FileIssue } from "../api";
@@ -16,8 +16,17 @@ interface TreeNode {
     children?: TreeNode[];
 }
 
-const SVG_HEIGHT = 800;
-const SVG_WIDTH = 1200;
+const SVG_HEIGHT = 800; // Fixed height
+// SVG_WIDTH will be dynamic based on container
+
+// Premium Color Palette
+const NODE_COLORS = {
+    file: "#0f172a",       // Slate 900
+    folder: "#f59e0b",     // Amber 500
+    root: "#d97706",       // Amber 600
+    strokeDefault: "#334155", // Slate 700
+    link: "#1e293b",       // Slate 800
+};
 
 function getCommonPrefix(paths: string[]): string {
     if (paths.length === 0) return "";
@@ -33,11 +42,35 @@ function getCommonPrefix(paths: string[]): string {
 
 export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetworkProps) {
     const [hoveredFile, setHoveredFile] = useState<FileAnalysis | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [dimensions, setDimensions] = useState({ width: 1200, height: SVG_HEIGHT });
+
+    // Handle responsive width
+    useEffect(() => {
+        if (containerRef.current) {
+            setDimensions({
+                width: Math.max(1200, containerRef.current.clientWidth),
+                height: SVG_HEIGHT
+            });
+        }
+
+        const handleResize = () => {
+            if (containerRef.current) {
+                setDimensions({
+                    width: Math.max(1200, containerRef.current.clientWidth),
+                    height: SVG_HEIGHT
+                });
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
 
     const { root, links } = useMemo(() => {
         if (files.length === 0) return { root: null, links: [] };
 
-        // 1. Determine Root Context
         const allPaths = files.map(f => f.file_path);
         const commonPrefix = getCommonPrefix(allPaths);
 
@@ -46,8 +79,6 @@ export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetwork
         const parentFolderName = parts.pop() || "Root";
 
         const dataRoot: TreeNode = { name: parentFolderName, type: "folder", children: [] };
-
-        // Create the Scanned Folder Node
         const scannedNode: TreeNode = { name: scannedFolderName, type: "folder", children: [] };
         dataRoot.children?.push(scannedNode);
 
@@ -59,7 +90,6 @@ export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetwork
             const PathParts = relativePath.split("/").filter(Boolean);
 
             let currentPath = "";
-
             PathParts.forEach((part, index) => {
                 const isFile = index === PathParts.length - 1;
                 const parentPath = currentPath;
@@ -82,77 +112,93 @@ export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetwork
             });
         });
 
-        // 2. D3 Tree
         const d3Root = hierarchy<TreeNode>(dataRoot);
         d3Root.sort((a, b) => (a.data.name || "").localeCompare(b.data.name || ""));
 
-        const treeLayout = tree<TreeNode>().size([SVG_WIDTH - 150, SVG_HEIGHT - 100]);
+        // Use dynamic width for layout
+        const treeLayout = tree<TreeNode>().size([dimensions.width - 200, SVG_HEIGHT - 150]);
         treeLayout(d3Root);
 
-        return { root: d3Root, links: d3Root.links() };
-    }, [files]);
+        // Center the tree horizontally
+        const xOffset = (dimensions.width - (dimensions.width - 200)) / 2; // Roughly center 
 
-    if (!root) return <div className="p-8 text-center text-gray-500">No data to display</div>;
+        // Reposition root to actual center
+        d3Root.each(d => {
+            // @ts-ignore
+            d.x += 50;
+        })
+
+        return { root: d3Root, links: d3Root.links() };
+    }, [files, dimensions.width]);
+
+    if (!root) return <div className="p-8 text-center text-slate-500 font-light">Loading visualization...</div>;
 
     const linkGen = linkVertical()
         .x((d: any) => d.x)
         .y((d: any) => d.y);
 
     return (
-        <div className="relative h-[600px] border border-slate-700 bg-[#0a0f1a] rounded-lg overflow-hidden shadow-xl">
+        <div ref={containerRef} className="relative h-[600px] bg-[#020617] overflow-hidden">
 
-            {/* Description Overlay */}
+            {/* Detailed Glass Overlay */}
             {hoveredFile && (
-                <div className="absolute top-4 right-4 z-10 w-80 bg-slate-900/90 backdrop-blur border border-slate-700 p-4 rounded-lg shadow-2xl animate-fade-in pointer-events-none">
-                    <h4 className="text-cyan-400 font-bold font-mono text-sm mb-1 break-all">
-                        {hoveredFile.file_path.split("/").pop()}
+                <div className="absolute top-6 right-6 z-20 w-80 glass-panel p-5 rounded-xl shadow-2xl animate-fade-in-up pointer-events-none border-l-4 border-l-cyan-500">
+                    <h4 className="text-cyan-400 font-bold font-mono text-base mb-1 break-all flex items-center gap-2">
+                        <span className="text-2xl">📄</span> {hoveredFile.file_path.split("/").pop()}
                     </h4>
 
-                    {/* Description / Docstring */}
-                    {hoveredFile.description ? (
-                        <p className="text-sm text-slate-200 leading-relaxed border-l-2 border-cyan-500 pl-3">
-                            {hoveredFile.description}
-                        </p>
-                    ) : (
-                        <p className="text-xs text-slate-600 italic">
-                            No technical note available for this component.
-                        </p>
-                    )}
+                    {/* Description */}
+                    <div className="my-4 text-sm text-slate-300 leading-relaxed font-light">
+                        {hoveredFile.description || <span className="italic text-slate-500">No description available.</span>}
+                    </div>
 
-                    {/* Grid: Health, Bugs, Complexity */}
-                    <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-800">
-                        <div>
-                            <span className="text-[10px] uppercase text-slate-500">Health</span>
-                            <div className="text-emerald-400 font-mono">{Math.round(hoveredFile.maintainability_index)}%</div>
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/10">
+                        <div className="text-center p-2 rounded bg-white/5 backdrop-blur-sm">
+                            <span className="text-[10px] uppercase text-emerald-400 font-bold tracking-wider block mb-1">Health</span>
+                            <div className="text-white font-mono text-xl">{Math.round(hoveredFile.maintainability_index)}%</div>
                         </div>
-                        <div>
-                            <span className="text-[10px] uppercase text-slate-500">Bugs</span>
-                            <div className="text-red-400 font-mono font-bold">
+                        <div className="text-center p-2 rounded bg-white/5 backdrop-blur-sm">
+                            <span className="text-[10px] uppercase text-red-400 font-bold tracking-wider block mb-1">Bugs</span>
+                            <div className="text-white font-mono text-xl font-bold">
                                 {issues.filter(i => i.file_path === hoveredFile.file_path).length}
                             </div>
                         </div>
-                        <div>
-                            <span className="text-[10px] uppercase text-slate-500">Complexity</span>
-                            <div className="text-amber-400 font-mono">{hoveredFile.complexity_score}</div>
+                        <div className="text-center p-2 rounded bg-white/5 backdrop-blur-sm">
+                            <span className="text-[10px] uppercase text-amber-400 font-bold tracking-wider block mb-1">Nodes</span>
+                            <div className="text-white font-mono text-xl">{hoveredFile.node_count}</div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Map */}
-            <div className="h-full overflow-auto bg-[url('/grid.svg')] flex items-center justify-center">
-                <div className="min-w-max min-h-max p-12 pt-20">
-                    <svg width={SVG_WIDTH} height={SVG_HEIGHT} className="overflow-visible">
-                        <g transform="translate(50, 40)">
-                            {/* Links */}
+            {/* Interactive Map */}
+            <div className="h-full overflow-auto flex items-center justify-center custom-scrollbar cursor-grab active:cursor-grabbing bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900/50 via-[#020617] to-[#020617]">
+                <div className="min-w-max min-h-max p-8 pt-12">
+                    <svg width={dimensions.width} height={SVG_HEIGHT} className="overflow-visible">
+
+                        {/* Defs for Gradients */}
+                        <defs>
+                            <radialGradient id="glowGradient">
+                                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.4" />
+                                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+                            </radialGradient>
+                            <radialGradient id="folderGradient">
+                                <stop offset="0%" stopColor="#f59e0b" />
+                                <stop offset="100%" stopColor="#d97706" />
+                            </radialGradient>
+                        </defs>
+
+                        <g transform="translate(0, 40)">
+                            {/* Connection Links */}
                             {links.map((link, i) => (
                                 <path
                                     key={i}
                                     d={linkGen(link as any) || undefined}
                                     fill="none"
-                                    stroke="#1e3a5f"
-                                    strokeWidth="1.5"
-                                    className="opacity-40"
+                                    stroke={NODE_COLORS.link}
+                                    strokeWidth="2"  // Thicker links
+                                    className="opacity-40 transition-all duration-500"
                                 />
                             ))}
 
@@ -161,62 +207,74 @@ export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetwork
                                 const isFile = node.data.type === "file";
                                 const isRoot = node.depth === 0;
 
-                                // Bigger sizes: 30-70px for files (Increased from 20-50)
+                                // Size Logic - INCREASED SIGNIFICANTLY
+                                // Base size 35px, scaling up to 90px
                                 const size = isFile
-                                    ? Math.max(30, Math.min(70, Math.log2((node.data.fileData?.complexity_score || 0) + 1) * 10))
-                                    : (isRoot ? 60 : 45);
+                                    ? Math.max(35, Math.min(90, Math.log2((node.data.fileData?.complexity_score || 0) + 1) * 12))
+                                    : (isRoot ? 70 : 55);
 
-                                const isHovered = hoveredFile && hoveredFile.file_path === node.data.fileData?.file_path;
+                                const isHovered = hoveredFile && hoveredFile.file_path === node.data.fileData?.file_path; // Only exact match for now to simplify
 
                                 return (
                                     <g
                                         key={i}
                                         transform={`translate(${node.x},${node.y})`}
-                                        className="cursor-pointer transition-opacity duration-300"
-                                        style={{ opacity: hoveredFile && !isHovered && !isFile ? 0.3 : 1 }}
+                                        className="transition-all duration-500 ease-out"
+                                        style={{
+                                            opacity: hoveredFile && !isHovered && !isFile ? 0.2 : 1,
+                                            transform: isHovered ? `translate(${node.x}px, ${node.y}px) scale(1.15)` : `translate(${node.x}px, ${node.y}px) scale(1)`
+                                        }}
                                         onClick={() => {
                                             if (isFile && node.data.fileData && onFileClick) {
                                                 onFileClick(node.data.fileData);
                                             }
                                         }}
-                                        onMouseEnter={() => isFile && node.data.fileData && setHoveredFile(node.data.fileData)}
+                                        onMouseEnter={() => {
+                                            if (isFile && node.data.fileData) setHoveredFile(node.data.fileData);
+                                        }}
                                         onMouseLeave={() => setHoveredFile(null)}
                                     >
-                                        {/* Hover Ring */}
+                                        {/* Glow Ring on Hover */}
                                         {isHovered && (
-                                            <circle r={size / 2 + 6} fill="none" stroke="#22d3ee" strokeWidth="2" className="animate-ping opacity-50" />
+                                            <>
+                                                <circle r={size / 2 + 20} fill="url(#glowGradient)" className="animate-pulse-subtle" />
+                                                <circle r={size / 2 + 6} fill="none" stroke="#22d3ee" strokeWidth="2" />
+                                            </>
                                         )}
 
-                                        {/* Node Shape */}
+                                        {/* Main Node Circle */}
                                         <circle
                                             r={size / 2}
-                                            fill={isFile ? "#0f172a" : (isRoot ? "#b45309" : "#ca8a04")}
-                                            stroke={isFile ? getHealthColor(node.data.fileData?.maintainability_index || 100) : (isRoot ? "#d97706" : "#ca8a04")}
-                                            strokeWidth={isFile ? (isHovered ? 3 : 2) : (isRoot ? 3 : 0)}
-                                            className="transition-all duration-200"
-                                            style={{
-                                                filter: isHovered ? "drop-shadow(0 0 8px cyan)" : "none"
-                                            }}
+                                            fill={isFile ? NODE_COLORS.file : "url(#folderGradient)"}
+                                            stroke={isFile ? getHealthColor(node.data.fileData?.maintainability_index || 100) : "rgba(255,255,255,0.2)"}
+                                            strokeWidth={isFile ? 3 : 0} // Thicker stroke
+                                            className={`
+                                        transition-all duration-300
+                                        ${isFile ? 'cursor-pointer drop-shadow-lg' : 'drop-shadow-md'}
+                                      `}
                                         />
 
-                                        {/* Label */}
+                                        {/* Label Text - LARGER */}
                                         <text
-                                            dy={size / 2 + 18}
+                                            dy={size / 2 + 24} // Push text down further
                                             textAnchor="middle"
-                                            className={`text-[10px] font-mono tracking-wider transition-colors duration-200
-                                        ${isFile ? (isHovered ? 'fill-cyan-400 font-bold' : 'fill-slate-500') : (isRoot ? 'fill-amber-500 font-bold uppercase text-xs' : 'fill-amber-500/80 font-bold')}
+                                            className={`font-mono tracking-wide transition-all duration-200 select-none
+                                        ${isFile
+                                                    ? (isHovered ? 'fill-cyan-300 font-bold text-sm' : 'fill-slate-400 text-xs font-medium')
+                                                    : (isRoot ? 'fill-amber-500 font-bold uppercase text-sm' : 'fill-slate-500 font-bold text-xs')}
                                       `}
+                                            style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
                                         >
                                             {node.data.name}
                                         </text>
 
-                                        {/* Icon */}
+                                        {/* Center Icon */}
                                         {isFile ? (
-                                            <text dy="5" textAnchor="middle" fontSize={size / 2.2} className="fill-slate-600 pointer-events-none select-none">
+                                            <text dy="5" textAnchor="middle" fontSize={size / 2.2} className="fill-slate-500 pointer-events-none select-none opacity-60">
                                                 📄
                                             </text>
                                         ) : (
-                                            <text dy="6" textAnchor="middle" fontSize={isRoot ? "22" : "18"} className="fill-black pointer-events-none select-none">
+                                            <text dy="6" textAnchor="middle" fontSize={isRoot ? "28" : "22"} className="pointer-events-none select-none filter opacity-90 drop-shadow-md">
                                                 {isRoot ? "🏗️" : "📂"}
                                             </text>
                                         )}
@@ -232,7 +290,7 @@ export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetwork
 }
 
 function getHealthColor(mi: number) {
-    if (mi >= 85) return "#34d399";
-    if (mi >= 65) return "#fcd34d";
-    return "#f87171";
+    if (mi >= 85) return "#34d399"; // Emerald 400
+    if (mi >= 65) return "#fcd34d"; // Amber 300
+    return "#f87171"; // Red 400
 }

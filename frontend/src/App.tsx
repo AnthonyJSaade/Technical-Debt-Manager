@@ -11,18 +11,21 @@ import { SpecSheet } from "./components/SpecSheet";
 function App() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [files, setFiles] = useState<FileAnalysis[]>([]);
+  // ... state ...
   const [isLoading, setIsLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastScan, setLastScan] = useState<{ files: number; complexity: number } | null>(null);
-  const [selectedFile, setSelectedFile] = useState<FileAnalysis | null>(null);
+  // Consolidate file selection state
+  const [activeFile, setActiveFile] = useState<FileAnalysis | null>(null);
+  const [showJanitor, setShowJanitor] = useState(false);
+
   const [issues, setIssues] = useState<FileIssue[]>([]);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
   const [currentProject, setCurrentProject] = useState<string | null>(null);
-  const [specSheetFile, setSpecSheetFile] = useState<FileAnalysis | null>(null);
 
-  // Fetch health status
+  // ... fetch handlers ...
   const fetchHealth = useCallback(async () => {
     try {
       const data = await getHealth();
@@ -34,7 +37,6 @@ function App() {
     }
   }, []);
 
-  // Fetch files list
   const fetchFiles = useCallback(async () => {
     try {
       const data = await getFiles();
@@ -46,21 +48,15 @@ function App() {
     }
   }, []);
 
-  // Initial load
   useEffect(() => {
     fetchHealth();
-    fetchFiles();
-
-    // Poll health every 10 seconds
     const interval = setInterval(fetchHealth, 10000);
     return () => clearInterval(interval);
-  }, [fetchHealth, fetchFiles]);
+  }, [fetchHealth]);
 
-  // Handle scan with path
   const handleScan = async (path: string) => {
     setIsScanning(true);
     setLastScan(null);
-    // Immediately clear all previous data for a fresh start
     setFiles([]);
     setIssues([]);
     setIsLoading(true);
@@ -69,7 +65,6 @@ function App() {
       setLastScan({ files: result.files_scanned, complexity: result.total_complexity });
       setCurrentProject(path);
       setShowScanModal(false);
-      // Refresh file list after scan
       await fetchFiles();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Scan failed");
@@ -78,34 +73,38 @@ function App() {
     }
   };
 
-  // Handle file click from CodeMap - show SpecSheet first
-  const handleFileClick = (file: FileAnalysis) => {
-    setSelectedFile(file);
-  };
+  // Unified handler for Map and Issue clicks
+  // Always opens the SpecSheet (by setting activeFile)
+  const handleFileAction = (fileOrPath: FileAnalysis | string) => {
+    let file: FileAnalysis | undefined;
 
-  // Handle "Initiate Maintenance" from SpecSheet
-  const handleInitiateMaintenance = () => {
-    if (specSheetFile) {
-      setSelectedFile(specSheetFile);
-      setSpecSheetFile(null);
+    if (typeof fileOrPath === 'string') {
+      file = files.find(f => f.file_path === fileOrPath);
+    } else {
+      file = fileOrPath;
+    }
+
+    if (file) {
+      setActiveFile(file);
+      setShowJanitor(false); // Reset Janitor state
     }
   };
 
-  // Handle modal close
-  const handleModalClose = () => {
-    setSelectedFile(null);
+  const handleInitiateMaintenance = () => {
+    setShowJanitor(true);
   };
 
-  // Handle fix applied
+  const handleCloseViewer = () => {
+    setActiveFile(null);
+    setShowJanitor(false);
+  };
+
   const handleFixApplied = () => {
-    // Refresh file list after fix is applied
     fetchFiles();
   };
 
-  // Diagnose all files for bugs
   const runDiagnosis = useCallback(async () => {
     if (files.length === 0) return;
-
     setIsDiagnosing(true);
     try {
       const result = await diagnoseAllFiles();
@@ -117,212 +116,190 @@ function App() {
     }
   }, [files.length]);
 
-  // Handle issue click - open SpecSheet for that file
-  const handleIssueClick = (filePath: string) => {
-    const file = files.find(f => f.file_path === filePath);
-    if (file) {
-      setSpecSheetFile(file);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[var(--rv-bg-primary)] p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <header className="flex items-center justify-between mb-8">
+    <div className="min-h-screen font-sans text-slate-200">
+
+      {/* Sticky Glass Header */}
+      <header className="sticky top-0 z-50 glass-header px-8 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="bg-gradient-to-br from-cyan-500 to-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
+            <span className="text-xl">⚡</span>
+          </div>
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
               RepoVision
             </h1>
-            <p className="text-[var(--rv-text-secondary)] text-sm mt-1">
-              AI-Powered Mission Control for Technical Debt
+            <p className="text-xs text-slate-400 font-medium tracking-wide uppercase">
+              Technical Debt Intelligence
             </p>
           </div>
+        </div>
 
-          <div className="flex items-center gap-4">
-            {/* Backend Status */}
-            <div className="flex items-center gap-2 text-sm">
-              <div
-                className={`w-2 h-2 rounded-full ${health?.status === "ok"
-                  ? "bg-emerald-400 shadow-lg shadow-emerald-400/50"
-                  : error
-                    ? "bg-red-500"
-                    : "bg-amber-400 animate-pulse"
-                  }`}
-              />
-              <span className="text-gray-400">
-                {health?.status === "ok" ? "Connected" : error ? "Disconnected" : "Connecting..."}
-              </span>
-            </div>
-
-            {/* Find Bugs Button */}
-            <button
-              onClick={runDiagnosis}
-              disabled={isDiagnosing || files.length === 0}
-              className={`
-                px-4 py-2.5 rounded-lg font-medium text-sm
-                transition-all duration-200
-                ${isDiagnosing || files.length === 0
-                  ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                  : "bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/25 hover:shadow-amber-500/40"
-                }
-              `}
-            >
-              {isDiagnosing ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      fill="none"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Finding Bugs...
-                </span>
-              ) : (
-                <>🔍 Find Bugs</>
-              )}
-            </button>
-
-            {/* Scan Button */}
-            <button
-              onClick={() => setShowScanModal(true)}
-              disabled={!health}
-              className={`
-                px-5 py-2.5 rounded-lg font-medium text-sm
-                transition-all duration-200
-                ${!health
-                  ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25 hover:shadow-emerald-500/40"
-                }
-              `}
-            >
-              📂 Scan Project
-            </button>
-          </div>
-        </header>
-
-        {/* Current Project Banner */}
-        {currentProject && (
-          <div className="mb-4 p-3 bg-cyan-900/20 border border-cyan-500/20 rounded-lg flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-cyan-400">📁</span>
-              <span className="text-gray-400">Analyzing:</span>
-              <span className="text-cyan-300 font-mono truncate max-w-md">{currentProject}</span>
-            </div>
-            <button
-              onClick={() => setShowScanModal(true)}
-              className="text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 hover:bg-cyan-900/30 rounded transition-colors"
-            >
-              Change
-            </button>
-          </div>
-        )}
-
-        {/* Scan Result Toast */}
-        {lastScan && (
-          <div className="mb-6 p-4 bg-emerald-900/30 border border-emerald-500/30 rounded-lg flex items-center justify-between">
-            <span className="text-emerald-400">
-              ✓ Scanned {lastScan.files} files with total complexity of {lastScan.complexity}
+        <div className="flex items-center gap-4">
+          {/* Backend Status */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs">
+            <div className={`w-1.5 h-1.5 rounded-full ${health?.status === "ok" ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-red-500"}`} />
+            <span className="text-slate-400 font-medium">
+              {health?.status === "ok" ? "System Online" : "Disconnected"}
             </span>
-            <button
-              onClick={() => setLastScan(null)}
-              className="text-emerald-400 hover:text-emerald-300"
-            >
-              ×
-            </button>
+          </div>
+
+          <div className="h-6 w-px bg-white/10 mx-2" />
+
+          {/* Action Buttons */}
+          <button
+            onClick={runDiagnosis}
+            disabled={isDiagnosing || files.length === 0}
+            className={`
+              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300
+              ${isDiagnosing || files.length === 0
+                ? "text-slate-500 cursor-not-allowed"
+                : "bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 hover:shadow-[0_0_15px_rgba(245,158,11,0.1)]"
+              }
+            `}
+          >
+            {isDiagnosing ? <span className="animate-spin">⟳</span> : "🔍"}
+            <span>Diagnose Issues</span>
+          </button>
+
+          <button
+            onClick={() => setShowScanModal(true)}
+            disabled={!health}
+            className={`
+              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300
+              ${!health
+                ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                : "bg-gradient-to-r from-cyan-600 to-indigo-600 text-white hover:from-cyan-500 hover:to-indigo-500 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 border border-transparent"
+              }
+            `}
+          >
+            📂 Scan Project
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-[1600px] mx-auto p-8 space-y-8">
+
+        {/* Project Context & Stats Toast */}
+        {(currentProject || lastScan || error) && (
+          <div className="grid grid-cols-1 gap-4 animate-fade-in-up">
+            {currentProject && (
+              <div className="glass-panel p-4 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">📁</div>
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Current Workspace</p>
+                    <p className="text-sm font-mono text-cyan-300">{currentProject}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowScanModal(true)} className="text-xs text-slate-400 hover:text-white transition-colors">Change</button>
+              </div>
+            )}
+
+            {lastScan && (
+              <div className="glass-panel p-4 rounded-xl border-l-4 border-l-emerald-500 flex items-center justify-between bg-emerald-950/20">
+                <div className="flex items-center gap-3">
+                  <div className="text-emerald-400">✓</div>
+                  <span className="text-sm text-emerald-200">
+                    Successfully analyzed <span className="font-bold text-white">{lastScan.files}</span> files.
+                    Total Complexity: <span className="font-mono">{lastScan.complexity}</span>.
+                  </span>
+                </div>
+                <button onClick={() => setLastScan(null)} className="text-emerald-400 hover:text-white">×</button>
+              </div>
+            )}
+
+            {error && !health && (
+              <div className="glass-panel p-4 rounded-xl border-l-4 border-l-red-500 bg-red-950/20 text-red-200 text-sm flex items-center gap-3">
+                <span className="text-xl">⚠</span> {error}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Error Banner */}
-        {error && !health && (
-          <div className="mb-6 p-4 bg-red-900/30 border border-red-500/30 rounded-lg text-red-400">
-            ⚠ {error}
-          </div>
-        )}
+        {/* Top Row: Metrics and Issues */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
 
-        {/* Health HUD */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-300 mb-4 flex items-center gap-2">
-            <span className="text-xl">📊</span> Health Dashboard
-          </h2>
-          <HealthHUD files={files} isLoading={isLoading} />
-        </section>
-
-        {/* Issues Panel - Shows detected bugs prominently */}
-        {(issues.length > 0 || isDiagnosing) && (
-          <section className="mb-8">
-            <h2 className="text-lg font-semibold text-gray-300 mb-4 flex items-center gap-2">
-              <span className="text-xl">🐛</span> Detected Issues
-              {issues.length > 0 && (
-                <span className="ml-2 px-2 py-0.5 text-xs bg-red-500/20 text-red-300 rounded-full border border-red-500/30">
-                  {issues.length} found
-                </span>
-              )}
+          {/* Health Metrics */}
+          <section className="h-full">
+            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" /> Health Metrics
             </h2>
-            <IssuesPanel
-              issues={issues}
-              isLoading={isDiagnosing}
-              onIssueClick={handleIssueClick}
-              files={files}
-            />
+            <div className="h-full">
+              <HealthHUD files={files} isLoading={isLoading} />
+            </div>
           </section>
-        )}
 
-        {/* Code Map - Blueprint Style */}
-        <section>
-          <h2 className="text-lg font-semibold text-gray-300 mb-4 flex items-center gap-2">
-            <span className="text-xl">📐</span>
-            <span className="font-mono uppercase tracking-wider">Architectural Blueprint</span>
-            <span className="text-xs font-normal text-slate-500 ml-2 font-mono">
-              Click component for specifications
-            </span>
-          </h2>
-          <CodeMap files={files} issues={issues} onFileClick={handleFileClick} />
-        </section>
+          {/* Active Issues (Always visible now, with empty state handling outside) */}
+          <section className="h-full">
+            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Active Issues
+            </h2>
+            <div className="h-full">
+              <IssuesPanel
+                issues={issues}
+                isLoading={isDiagnosing}
+                onIssueClick={handleFileAction}
+                files={files}
+              />
+            </div>
+          </section>
+        </div>
 
-        {/* Footer */}
-        <footer className="mt-8 text-center text-gray-600 text-sm">
-          RepoVision • AI-Powered Technical Debt Manager
+        {/* Bottom Row: Full Width Architecture Map */}
+        <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          <section className="h-full flex flex-col">
+            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" /> Active Architecture
+            </h2>
+            <div className="w-full">
+              <CodeMap
+                files={files}
+                issues={issues}
+                selectedFile={activeFile}
+                onFileClick={handleFileAction}
+              />
+            </div>
+          </section>
+        </div>
+
+        <footer className="pt-12 pb-8 text-center border-t border-white/5">
+          <p className="text-sm text-slate-500 font-light">
+            RepoVision AI • <span className="text-slate-600">v0.9.1 Beta</span>
+          </p>
         </footer>
-      </div>
 
-      {/* Fix Modal */}
-      {selectedFile && (
+      </main>
+
+      {/* Modals */}
+
+      {/* 1. Spec Sheet: The Unified Info Modal */}
+      {activeFile && !showJanitor && (
+        <SpecSheet
+          file={activeFile}
+          onClose={handleCloseViewer}
+          onInitiateMaintenance={handleInitiateMaintenance}
+        />
+      )}
+
+      {/* 2. Janitor Agent: The Action Modal (Overlays Spec Sheet concept) */}
+      {activeFile && showJanitor && (
         <FixModal
-          selectedFile={selectedFile}
-          onClose={handleModalClose}
+          selectedFile={activeFile}
+          onClose={() => setShowJanitor(false)} // Back to Spec Sheet
           onApplied={handleFixApplied}
         />
       )}
 
-      {/* Scan Modal */}
       <ScanModal
         isOpen={showScanModal}
         onClose={() => setShowScanModal(false)}
         onScan={handleScan}
         isScanning={isScanning}
       />
-
-      {/* Spec Sheet - Technical details before maintenance */}
-      {specSheetFile && (
-        <SpecSheet
-          file={specSheetFile}
-          onClose={() => setSpecSheetFile(null)}
-          onInitiateMaintenance={handleInitiateMaintenance}
-        />
-      )}
     </div>
   );
+
 }
 
 export default App;

@@ -55,21 +55,21 @@ export function FixModal({ selectedFile, onClose, onApplied }: FixModalProps) {
       addLog(`> Initializing analysis for ${fileName}...`, "info");
       await new Promise(r => setTimeout(r, 500));
       addLog("> Loading file content...", "info");
-      
+
       try {
         // Get original code
         const fileContent = await getFileContent(selectedFile.file_path);
         setOriginalCode(fileContent.content);
         addLog("> File loaded successfully", "success");
-        
+
         await new Promise(r => setTimeout(r, 300));
         addLog("> Running AI diagnostics...", "info");
-        
+
         const diagResult = await diagnoseFile(selectedFile.file_path);
         setDiagnosis(diagResult);
-        
+
         addLog(`> Analysis complete`, "success");
-        
+
         if (diagResult.is_healthy) {
           addLog(`> ✓ ${diagResult.issue}`, "success");
           if (diagResult.suggestions.length > 0) {
@@ -82,7 +82,7 @@ export function FixModal({ selectedFile, onClose, onApplied }: FixModalProps) {
           // Pre-fill instruction with detected issue only for unhealthy code
           setInstruction(diagResult.issue);
         }
-        
+
         setState("input");
       } catch (err) {
         addLog(`> Error: ${err instanceof Error ? err.message : "Analysis failed"}`, "error");
@@ -98,7 +98,7 @@ export function FixModal({ selectedFile, onClose, onApplied }: FixModalProps) {
 
     setState("loading");
     setLogs([]);
-    
+
     // Animated terminal logs
     const logSequence = [
       { text: `> Starting Janitor Agent...`, type: "info" as const, delay: 0 },
@@ -175,8 +175,8 @@ export function FixModal({ selectedFile, onClose, onApplied }: FixModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0a0f1a] border border-cyan-900/50 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl shadow-cyan-900/20">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gradient-to-br from-[#0a0f1a] to-slate-950 border border-cyan-500/30 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl shadow-cyan-900/20">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-cyan-900/30 bg-gradient-to-r from-cyan-950/30 to-transparent">
           <div className="flex items-center gap-3">
@@ -221,7 +221,7 @@ export function FixModal({ selectedFile, onClose, onApplied }: FixModalProps) {
                             Code Analysis Result
                           </p>
                           <p className="font-medium text-emerald-300">{diagnosis.issue}</p>
-                          
+
                           {/* Optional Suggestions */}
                           {diagnosis.suggestions.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-emerald-800/30">
@@ -263,14 +263,14 @@ export function FixModal({ selectedFile, onClose, onApplied }: FixModalProps) {
               {/* Custom instruction */}
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">
-                  {diagnosis?.is_healthy 
+                  {diagnosis?.is_healthy
                     ? "Want to make changes anyway? Describe what you'd like to do:"
                     : "Custom instruction (optional override):"}
                 </label>
                 <textarea
                   value={instruction}
                   onChange={(e) => setInstruction(e.target.value)}
-                  placeholder={diagnosis?.is_healthy 
+                  placeholder={diagnosis?.is_healthy
                     ? "The code looks good, but you can still request specific changes..."
                     : "Leave empty to use detected issue, or override with custom instructions..."}
                   className="w-full h-24 bg-gray-900/50 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-600 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none resize-none font-mono text-sm"
@@ -289,11 +289,10 @@ export function FixModal({ selectedFile, onClose, onApplied }: FixModalProps) {
                   <button
                     onClick={handleSubmit}
                     disabled={diagnosis?.is_healthy && !instruction.trim()}
-                    className={`px-8 py-2.5 rounded-lg font-medium transition-all shadow-lg flex items-center gap-2 ${
-                      diagnosis?.is_healthy
+                    className={`px-8 py-2.5 rounded-lg font-medium transition-all shadow-lg flex items-center gap-2 ${diagnosis?.is_healthy
                         ? "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-blue-900/30"
                         : "bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 shadow-cyan-900/30"
-                    } text-white disabled:opacity-50 disabled:cursor-not-allowed`}
+                      } text-white disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     <span>{diagnosis?.is_healthy ? "🔄" : "🔧"}</span>
                     {diagnosis?.is_healthy ? "Request Changes" : "Fix Now"}
@@ -377,11 +376,10 @@ export function FixModal({ selectedFile, onClose, onApplied }: FixModalProps) {
                   </button>
                   <button
                     onClick={handleApply}
-                    className={`px-8 py-2.5 rounded-lg font-medium transition-all shadow-lg flex items-center gap-2 ${
-                      fixMode === "safe"
+                    className={`px-8 py-2.5 rounded-lg font-medium transition-all shadow-lg flex items-center gap-2 ${fixMode === "safe"
                         ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/30"
                         : "bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 shadow-red-900/30"
-                    } text-white`}
+                      } text-white`}
                   >
                     {fixMode === "safe" ? (
                       <>
@@ -477,34 +475,31 @@ function ModeToggle({ mode, onChange }: { mode: FixMode; onChange: (mode: FixMod
       <div className="relative flex bg-gray-900/80 rounded-full p-1 border border-gray-700">
         {/* Background slider */}
         <div
-          className={`absolute top-1 bottom-1 w-[calc(50%-2px)] rounded-full transition-all duration-200 ${
-            mode === "safe"
+          className={`absolute top-1 bottom-1 w-[calc(50%-2px)] rounded-full transition-all duration-200 ${mode === "safe"
               ? "left-1 bg-gradient-to-r from-emerald-600 to-teal-600"
               : "left-[calc(50%+1px)] bg-gradient-to-r from-orange-600 to-red-600"
-          }`}
+            }`}
         />
-        
+
         {/* Safe button */}
         <button
           onClick={() => onChange("safe")}
-          className={`relative z-10 px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-            mode === "safe" ? "text-white" : "text-gray-500 hover:text-gray-300"
-          }`}
+          className={`relative z-10 px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${mode === "safe" ? "text-white" : "text-gray-500 hover:text-gray-300"
+            }`}
         >
           🛡️ Safe
         </button>
-        
+
         {/* Live button */}
         <button
           onClick={() => onChange("live")}
-          className={`relative z-10 px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-            mode === "live" ? "text-white" : "text-gray-500 hover:text-gray-300"
-          }`}
+          className={`relative z-10 px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${mode === "live" ? "text-white" : "text-gray-500 hover:text-gray-300"
+            }`}
         >
           ⚡ Live
         </button>
       </div>
-      
+
       {/* Mode indicator text */}
       <span className={`text-xs font-medium ${mode === "safe" ? "text-emerald-400" : "text-orange-400"}`}>
         {mode === "safe" ? "Downloads a copy" : "Overwrites file"}
@@ -514,12 +509,12 @@ function ModeToggle({ mode, onChange }: { mode: FixMode; onChange: (mode: FixMod
 }
 
 // Terminal Log Component
-function TerminalLog({ 
-  logs, 
-  logContainerRef 
-}: { 
-  logs: LogEntry[]; 
-  logContainerRef: React.RefObject<HTMLDivElement | null> 
+function TerminalLog({
+  logs,
+  logContainerRef
+}: {
+  logs: LogEntry[];
+  logContainerRef: React.RefObject<HTMLDivElement | null>
 }) {
   const typeColors = {
     info: "text-cyan-400",
@@ -538,7 +533,7 @@ function TerminalLog({
         </div>
         <span className="text-xs text-gray-500 font-mono ml-2">janitor-agent — bash</span>
       </div>
-      <div 
+      <div
         ref={logContainerRef}
         className="p-4 h-64 overflow-y-auto font-mono text-sm space-y-1"
       >

@@ -84,21 +84,27 @@ export function ScanModal({ isOpen, onClose, onScan, isScanning }: ScanModalProp
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0d1117] border border-gray-700 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-        {/* Header - macOS style */}
-        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-b from-gray-800 to-gray-850 border-b border-gray-700">
-          <div className="flex items-center gap-2">
-            {/* Traffic lights */}
-            <button
-              onClick={onClose}
-              disabled={isScanning}
-              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 disabled:opacity-50"
-            />
-            <div className="w-3 h-3 rounded-full bg-yellow-500" />
-            <div className="w-3 h-3 rounded-full bg-green-500" />
+      <div className="bg-gradient-to-br from-[#0a0f1a] to-slate-950 border border-cyan-500/30 rounded-2xl w-full max-w-2xl shadow-2xl shadow-cyan-900/20 overflow-hidden flex flex-col max-h-[80vh]">
+        {/* Header - Premium Style */}
+        <div className="flex items-center justify-between px-6 py-4 bg-white/5 border-b border-cyan-900/30">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+              📂
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white tracking-wide">SCANNER</h3>
+              <p className="text-xs text-slate-400">Select directory to analyze</p>
+            </div>
           </div>
-          <span className="text-sm font-medium text-gray-300">Select Folder to Scan</span>
-          <div className="w-16" /> {/* Spacer for centering */}
+          <button
+            onClick={onClose}
+            disabled={isScanning}
+            className="text-slate-500 hover:text-white transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Toolbar */}
@@ -114,7 +120,7 @@ export function ScanModal({ isOpen, onClose, onScan, isScanning }: ScanModalProp
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
             </svg>
           </button>
-          
+
           <button
             onClick={() => loadDirectory()}
             disabled={isLoading}
@@ -169,11 +175,10 @@ export function ScanModal({ isOpen, onClose, onScan, isScanning }: ScanModalProp
               <button
                 onClick={handleSelectCurrent}
                 onDoubleClick={handleScan}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                  selectedPath === browseData?.current_path
-                    ? "bg-cyan-900/30 border-l-2 border-cyan-500"
-                    : "hover:bg-gray-800/50"
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${selectedPath === browseData?.current_path
+                  ? "bg-cyan-900/30 border-l-2 border-cyan-500"
+                  : "hover:bg-gray-800/50"
+                  }`}
               >
                 <span className="text-xl">📂</span>
                 <div className="flex-1 min-w-0">
@@ -190,11 +195,10 @@ export function ScanModal({ isOpen, onClose, onScan, isScanning }: ScanModalProp
                   key={entry.path}
                   onClick={() => handleSelect(entry)}
                   onDoubleClick={() => handleNavigate(entry)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                    selectedPath === entry.path
-                      ? "bg-cyan-900/30 border-l-2 border-cyan-500"
-                      : "hover:bg-gray-800/50"
-                  }`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${selectedPath === entry.path
+                    ? "bg-cyan-900/30 border-l-2 border-cyan-500"
+                    : "hover:bg-gray-800/50"
+                    }`}
                 >
                   <span className="text-xl">
                     {entry.is_dir ? "📁" : entry.name.endsWith(".py") ? "🐍" : "📄"}
@@ -247,11 +251,10 @@ export function ScanModal({ isOpen, onClose, onScan, isScanning }: ScanModalProp
               <button
                 onClick={handleScan}
                 disabled={isScanning || (!selectedPath && !browseData?.current_path)}
-                className={`px-6 py-2 rounded-lg font-medium text-sm transition-all ${
-                  isScanning || (!selectedPath && !browseData?.current_path)
-                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                    : "bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-lg shadow-emerald-900/30"
-                }`}
+                className={`px-6 py-2 rounded-lg font-medium text-sm transition-all ${isScanning || (!selectedPath && !browseData?.current_path)
+                  ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                  : "bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-lg shadow-emerald-900/30"
+                  }`}
               >
                 {isScanning ? (
                   <span className="flex items-center gap-2">
