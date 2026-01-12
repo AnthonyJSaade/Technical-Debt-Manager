@@ -88,7 +88,7 @@ Traditional Cyclomatic Complexity counts branches. Cognitive Complexity penalize
 
 A function with CC=10 and flat structure is easier to read than CC=5 with 4 levels of nesting.
 
-### Why Claude 3 Opus?
+### Why Claude 4.5 Opus?
 
 > **TL;DR:** Superior reasoning for multi-step refactoring tasks.
 
