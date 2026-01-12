@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getHealth, getFiles, scanProject, diagnoseAllFiles } from "./api";
+import { getHealth, getFiles, scanProject, diagnoseAllFiles, selectDirectory } from "./api";
 import type { FileAnalysis, HealthStatus, FileIssue } from "./api";
 import { HealthHUD } from "./components/HealthHUD";
 import { CodeMap } from "./components/CodeMap";
@@ -22,8 +22,10 @@ function App() {
 
   const [issues, setIssues] = useState<FileIssue[]>([]);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [hasDiagnosed, setHasDiagnosed] = useState(false); // Track if diagnosis has been run
   const [showScanModal, setShowScanModal] = useState(false);
   const [currentProject, setCurrentProject] = useState<string | null>(null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false); // Prevent double popup
 
   // ... fetch handlers ...
   const fetchHealth = useCallback(async () => {
@@ -73,6 +75,27 @@ function App() {
     }
   };
 
+  const handleNativeScan = async () => {
+    // Prevent double popups
+    if (isPickerOpen || isScanning) return;
+
+    setIsPickerOpen(true);
+    try {
+      // Trigger native picker on backend
+      const path = await selectDirectory();
+      if (path) {
+        // If user selected a path, start scanning immediately
+        await handleScan(path);
+      }
+    } catch (err) {
+      console.error("Native scan failed:", err);
+      // Fallback: show custom modal if native fails (optional, but good for safety)
+      setShowScanModal(true);
+    } finally {
+      setIsPickerOpen(false);
+    }
+  };
+
   // Unified handler for Map and Issue clicks
   // Always opens the SpecSheet (by setting activeFile)
   const handleFileAction = (fileOrPath: FileAnalysis | string) => {
@@ -109,6 +132,7 @@ function App() {
     try {
       const result = await diagnoseAllFiles();
       setIssues(result.issues);
+      setHasDiagnosed(true); // Mark that diagnosis has been run
     } catch (err) {
       console.error("Failed to diagnose files:", err);
     } finally {
@@ -163,17 +187,23 @@ function App() {
           </button>
 
           <button
-            onClick={() => setShowScanModal(true)}
-            disabled={!health}
+            onClick={handleNativeScan}
+            disabled={!health || isScanning}
             className={`
               flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300
-              ${!health
+              ${!health || isScanning
                 ? "bg-slate-800 text-slate-500 cursor-not-allowed"
                 : "bg-gradient-to-r from-cyan-600 to-indigo-600 text-white hover:from-cyan-500 hover:to-indigo-500 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 border border-transparent"
               }
             `}
           >
-            📂 Scan Project
+            {isScanning ? (
+              <>
+                <span className="animate-spin">⟳</span> Scanning...
+              </>
+            ) : (
+              <>📂 Scan Project</>
+            )}
           </button>
         </div>
       </header>
@@ -241,6 +271,7 @@ function App() {
                 isLoading={isDiagnosing}
                 onIssueClick={handleFileAction}
                 files={files}
+                hasDiagnosed={hasDiagnosed}
               />
             </div>
           </section>

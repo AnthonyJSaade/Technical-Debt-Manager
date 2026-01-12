@@ -47,6 +47,16 @@ except ZeroDivisionError:
 ```
 """
 
+CLASSIFY_PROMPT = """You are a code issue classifier. Classify the following issue into exactly ONE category.
+
+Categories:
+- behavioral_bug: Logic errors, crashes, incorrect output, runtime exceptions, security issues
+- typo: Spelling mistakes in variable names, strings, comments, or identifiers
+- docs: Documentation changes, docstring updates, README edits
+- style: Formatting, naming conventions, code style improvements, refactoring
+
+Respond with ONLY the category name, nothing else."""
+
 
 class JanitorAgent:
     """
@@ -60,6 +70,7 @@ class JanitorAgent:
     """
 
     MAX_RETRIES = 3
+    SIMPLE_ISSUE_TYPES = {"typo", "docs", "style"}  # Issues that skip TDD verification
 
     def __init__(self, sandbox: DockerSandbox) -> None:
         """
@@ -73,6 +84,29 @@ class JanitorAgent:
             api_key=os.getenv("ANTHROPIC_API_KEY"),
         )
         self.model = "claude-opus-4-5"
+
+    async def _classify_issue(self, bug_desc: str) -> str:
+        """
+        Classify the issue type using LLM.
+
+        Args:
+            bug_desc: Description of the issue to classify.
+
+        Returns:
+            Issue type: 'behavioral_bug', 'typo', 'docs', or 'style'.
+        """
+        response = await self._ask_llm(
+            CLASSIFY_PROMPT,
+            f"Issue to classify: {bug_desc}"
+        )
+        # Normalize response
+        issue_type = response.strip().lower().replace(" ", "_")
+        
+        # Validate - default to behavioral_bug for unknown types
+        valid_types = {"behavioral_bug", "typo", "docs", "style"}
+        if issue_type not in valid_types:
+            return "behavioral_bug"
+        return issue_type
 
     async def _ask_llm(self, system_prompt: str, user_prompt: str) -> str:
         """
@@ -157,13 +191,10 @@ class JanitorAgent:
 
     async def solve(self, file_path: str, bug_desc: str) -> dict:
         """
-        Attempt to fix a bug using the TDD loop.
+        Attempt to fix a bug using dynamic retry logic.
 
-        State Machine:
-        A. Read the buggy code
-        B. Generate and validate reproduction script (must fail)
-        C. Fix loop (max 3 retries)
-        D. Return result
+        For behavioral bugs: Uses TDD loop with reproduction script.
+        For simple issues (typo/docs/style): Direct fix without verification.
 
         Args:
             file_path: Path to the buggy Python file.
@@ -174,28 +205,63 @@ class JanitorAgent:
                 - status: "success" | "failed"
                 - reason: Error reason (if failed)
                 - fixed_code: The fixed code (if success)
-                - repro_script: The reproduction script used
+                - issue_type: Classified issue type
+                - repro_script: The reproduction script used (TDD only)
         """
-        # Check sandbox availability
-        if not self.sandbox.available:
-            return {
-                "status": "failed",
-                "reason": "Docker sandbox is not available",
-            }
+        # === Step 0: Classify the issue ===
+        issue_type = await self._classify_issue(bug_desc)
+        is_simple_issue = issue_type in self.SIMPLE_ISSUE_TYPES
 
-        # === Step A: Read the buggy code ===
+        # === Step A: Read the code ===
         try:
             path = Path(file_path)
             if not path.exists():
                 return {
                     "status": "failed",
                     "reason": f"File not found: {file_path}",
+                    "issue_type": issue_type,
                 }
             original_code = path.read_text(encoding="utf-8")
         except Exception as e:
             return {
                 "status": "failed",
                 "reason": f"Could not read file: {e}",
+                "issue_type": issue_type,
+            }
+
+        # === SIMPLE ISSUE PATH (typo/docs/style) ===
+        if is_simple_issue:
+            # Direct fix without TDD verification
+            simple_fix_prompt = f"""Fix this Python code:
+
+```python
+{original_code}
+```
+
+Issue: {bug_desc}
+Issue type: {issue_type}
+
+Provide the COMPLETE fixed file. Only change what's necessary.
+Output only Python code, no markdown."""
+
+            fixed_code = await self._ask_llm(SYSTEM_PROMPT, simple_fix_prompt)
+            fixed_code = self._clean_code_response(fixed_code)
+
+            return {
+                "status": "success",
+                "fixed_code": fixed_code,
+                "issue_type": issue_type,
+                "attempts": 1,
+                "verification": "skipped (simple issue)",
+            }
+
+        # === BEHAVIORAL BUG PATH (TDD loop) ===
+        # Check sandbox availability for TDD
+        if not self.sandbox.available:
+            return {
+                "status": "failed",
+                "reason": "Docker sandbox is not available (required for behavioral bug verification)",
+                "issue_type": issue_type,
             }
 
         # === Step B: Generate reproduction script ===
@@ -227,6 +293,7 @@ The script will be appended after the module code. Output only Python code, no m
                 "reason": "Could not reproduce bug - test passes on original code",
                 "repro_script": repro_script,
                 "test_output": output,
+                "issue_type": issue_type,
             }
 
         # === Step C: Fix Loop ===
@@ -264,6 +331,7 @@ Output only Python code, no markdown."""
                     "fixed_code": fixed_code,
                     "repro_script": repro_script,
                     "attempts": attempt,
+                    "issue_type": issue_type,
                 }
 
             # Failed, prepare for next attempt
@@ -277,5 +345,6 @@ Output only Python code, no markdown."""
             "last_error": last_error,
             "repro_script": repro_script,
             "last_attempt": current_code,
+            "issue_type": issue_type,
         }
 

@@ -276,6 +276,20 @@ export async function diagnoseAllFiles(): Promise<DiagnoseAllResult> {
 }
 
 /**
+ * Trigger the native OS directory picker on the host machine.
+ */
+export async function selectDirectory(): Promise<string | null> {
+  const response = await fetch(`${API_BASE}/system/select-directory`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(`Select directory failed: ${response.status}`);
+  }
+  const data = await response.json();
+  return data.path;
+}
+
+/**
  * Browse filesystem directories.
  * Returns directory contents for folder picker UI.
  */

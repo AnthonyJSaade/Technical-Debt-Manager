@@ -6,13 +6,14 @@ interface IssuesPanelProps {
   isLoading: boolean;
   onIssueClick: (filePath: string) => void;
   files: FileAnalysis[];
+  hasDiagnosed?: boolean; // Whether the user has run diagnosis
 }
 
 /**
  * Panel displaying detected bugs and issues across the codebase.
  * Shows high-priority issues that need user attention.
  */
-export function IssuesPanel({ issues, isLoading, onIssueClick, files }: IssuesPanelProps) {
+export function IssuesPanel({ issues, isLoading, onIssueClick, files, hasDiagnosed = false }: IssuesPanelProps) {
   const severityConfig = {
     high: {
       icon: "🚨",
@@ -71,7 +72,27 @@ export function IssuesPanel({ issues, isLoading, onIssueClick, files }: IssuesPa
     );
   }
 
+  // If issues is empty, show different states based on whether diagnosis was run
   if (issues.length === 0) {
+    // User hasn't run diagnosis yet
+    if (!hasDiagnosed) {
+      return (
+        <div className="bg-gradient-to-br from-slate-900/50 to-slate-800/30 border border-slate-700/50 rounded-xl p-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-slate-600/10 rounded-full blur-3xl" />
+          <div className="relative">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-3xl">🔍</span>
+              <h3 className="text-lg font-semibold text-slate-300">Ready to Diagnose</h3>
+            </div>
+            <p className="text-gray-400 text-sm">
+              Click <span className="font-semibold text-amber-400">"Diagnose Issues"</span> in the header to scan your codebase for bugs and code smells.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // User ran diagnosis and no issues found
     return (
       <div className="bg-gradient-to-br from-emerald-950/30 to-cyan-950/20 border border-emerald-500/30 rounded-xl p-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
@@ -92,7 +113,7 @@ export function IssuesPanel({ issues, isLoading, onIssueClick, files }: IssuesPa
     <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 relative overflow-hidden">
       {/* Decorative glow */}
       <div className="absolute -top-20 -right-20 w-40 h-40 bg-red-500/10 rounded-full blur-3xl" />
-      
+
       {/* Header */}
       <div className="flex items-center justify-between mb-4 relative">
         <div className="flex items-center gap-3">
@@ -106,7 +127,7 @@ export function IssuesPanel({ issues, isLoading, onIssueClick, files }: IssuesPa
             </p>
           </div>
         </div>
-        
+
         {/* Severity summary badges */}
         <div className="flex gap-2">
           {groupedIssues.high.length > 0 && (

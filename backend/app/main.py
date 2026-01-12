@@ -244,9 +244,81 @@ class BrowseResponse(BaseModel):
     entries: list[DirectoryEntry]
 
 
+
+class DirectorySelectionResponse(BaseModel):
+    """Response model for directory selection."""
+    path: str | None
+
+
+def open_native_picker() -> str | None:
+    """
+    Open the native OS directory picker dialog on the host machine.
+    Uses AppleScript (osascript) on macOS for the best native experience.
+    """
+    import platform
+    import subprocess
+    import sys
+
+    # Check for macOS
+    if platform.system() == "Darwin":
+        try:
+            # Simple AppleScript to choose folder (no System Events needed)
+            script = 'POSIX path of (choose folder with prompt "Select Project Directory")'
+            result = subprocess.run(
+                ['osascript', '-e', script],
+                capture_output=True,
+                text=True,
+                timeout=120  # 2 minute timeout for user to select
+            )
+            
+            print(f"osascript result: returncode={result.returncode}, stdout='{result.stdout}', stderr='{result.stderr}'")
+            
+            if result.returncode == 0:
+                path = result.stdout.strip()
+                return path if path else None
+            # User cancelled or error
+            print(f"osascript failed: {result.stderr}")
+            return None
+        except subprocess.TimeoutExpired:
+            print("Directory picker timed out")
+            return None
+        except Exception as e:
+            print(f"Error opening macOS picker: {e}")
+            return None
+
+    # Fallback to Tkinter for Linux/Windows (if needed in future)
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        
+        root = tk.Tk()
+        root.withdraw() # Hide main window
+        root.wm_attributes('-topmost', 1) # Bring to front
+        
+        path = filedialog.askdirectory(title="Select Project Directory")
+        root.destroy()
+        
+        return path if path else None
+    except Exception as e:
+        print(f"Error opening Tkinter picker: {e}")
+        return None
+
+
 # ============================================================================
 # Endpoints
 # ============================================================================
+
+
+@app.post("/system/select-directory", response_model=DirectorySelectionResponse)
+async def select_directory() -> DirectorySelectionResponse:
+    """
+    Trigger the native OS directory picker on the host machine.
+    Returns the absolute path selected by the user.
+    """
+    selected_path = open_native_picker()
+    return DirectorySelectionResponse(path=selected_path)
+
+
 
 
 @app.get("/health", response_model=HealthResponse)
