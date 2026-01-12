@@ -43,6 +43,7 @@ function getCommonPrefix(paths: string[]): string {
 export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetworkProps) {
     const [hoveredFile, setHoveredFile] = useState<FileAnalysis | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 1200, height: SVG_HEIGHT });
 
     // Handle responsive width
@@ -66,6 +67,18 @@ export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetwork
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    // Scroll to bottom on mount (show leaf files first)
+    useEffect(() => {
+        if (scrollContainerRef.current && files.length > 0) {
+            // Small delay to ensure content is rendered
+            requestAnimationFrame(() => {
+                if (scrollContainerRef.current) {
+                    scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+                }
+            });
+        }
+    }, [files.length]);
 
 
     const { root, links } = useMemo(() => {
@@ -173,7 +186,7 @@ export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetwork
             )}
 
             {/* Interactive Map */}
-            <div className="h-full overflow-auto flex items-center justify-center custom-scrollbar cursor-grab active:cursor-grabbing bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900/50 via-[#020617] to-[#020617]">
+            <div ref={scrollContainerRef} className="h-full overflow-auto flex items-center justify-center custom-scrollbar cursor-grab active:cursor-grabbing bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900/50 via-[#020617] to-[#020617]">
                 <div className="min-w-max min-h-max p-8 pt-12">
                     <svg width={dimensions.width} height={SVG_HEIGHT} className="overflow-visible">
 

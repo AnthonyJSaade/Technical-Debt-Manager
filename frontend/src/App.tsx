@@ -144,104 +144,130 @@ function App() {
     <div className="min-h-screen font-sans text-slate-200">
 
       {/* Sticky Glass Header */}
-      <header className="sticky top-0 z-50 glass-header px-8 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-50 glass-header px-6 py-5 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="bg-gradient-to-br from-cyan-500 to-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <span className="text-xl">⚡</span>
+          <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+            <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+            </svg>
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-              RepoVision
+            <h1 className="text-xl font-semibold text-white">
+              RepoView
             </h1>
-            <p className="text-xs text-slate-400 font-medium tracking-wide uppercase">
-              Technical Debt Intelligence
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+              Technical Debt Manager
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
           {/* Backend Status */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs">
-            <div className={`w-1.5 h-1.5 rounded-full ${health?.status === "ok" ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-red-500"}`} />
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-800/40 border border-slate-700/50 text-sm">
+            <div className={`w-2 h-2 rounded-full ${health?.status === "ok" ? "bg-emerald-400" : "bg-red-500"}`} />
             <span className="text-slate-400 font-medium">
-              {health?.status === "ok" ? "System Online" : "Disconnected"}
+              {health?.status === "ok" ? "Online" : "Offline"}
             </span>
           </div>
 
-          <div className="h-6 w-px bg-white/10 mx-2" />
+          <div className="h-6 w-px bg-slate-700/50" />
 
-          {/* Action Buttons */}
+          {/* Action Buttons - Bigger */}
           <button
             onClick={runDiagnosis}
             disabled={isDiagnosing || files.length === 0}
             className={`
-              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300
+              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-smooth
               ${isDiagnosing || files.length === 0
-                ? "text-slate-500 cursor-not-allowed"
-                : "bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 hover:shadow-[0_0_15px_rgba(245,158,11,0.1)]"
+                ? "text-slate-600 cursor-not-allowed"
+                : "bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/15 hover:border-amber-500/30"
               }
             `}
           >
-            {isDiagnosing ? <span className="animate-spin">⟳</span> : "🔍"}
-            <span>Diagnose Issues</span>
+            {isDiagnosing ? (
+              <div className="w-4 h-4 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            )}
+            <span>Diagnose</span>
           </button>
 
           <button
             onClick={handleNativeScan}
             disabled={!health || isScanning}
             className={`
-              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300
+              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-smooth
               ${!health || isScanning
-                ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                : "bg-gradient-to-r from-cyan-600 to-indigo-600 text-white hover:from-cyan-500 hover:to-indigo-500 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 border border-transparent"
+                ? "bg-slate-800/50 text-slate-600 cursor-not-allowed"
+                : "bg-cyan-500 text-white hover:bg-cyan-400 shadow-sm shadow-cyan-500/20"
               }
             `}
           >
             {isScanning ? (
               <>
-                <span className="animate-spin">⟳</span> Scanning...
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Scanning</span>
               </>
             ) : (
-              <>📂 Scan Project</>
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+                </svg>
+                <span>Scan Project</span>
+              </>
             )}
           </button>
         </div>
       </header>
 
-      <main className="max-w-[1600px] mx-auto p-8 space-y-8">
+      <main className="max-w-screen-2xl mx-auto p-6 space-y-6">
 
         {/* Project Context & Stats Toast */}
         {(currentProject || lastScan || error) && (
-          <div className="grid grid-cols-1 gap-4 animate-fade-in-up">
+          <div className="grid grid-cols-1 gap-3 animate-fade-in-up">
             {currentProject && (
-              <div className="glass-panel p-4 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">📁</div>
+              <div className="glass-panel p-3 rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 bg-cyan-500/10 border border-cyan-500/20 rounded flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                  </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Current Workspace</p>
-                    <p className="text-sm font-mono text-cyan-300">{currentProject}</p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Workspace</p>
+                    <p className="text-xs font-mono text-slate-300">{currentProject}</p>
                   </div>
                 </div>
-                <button onClick={() => setShowScanModal(true)} className="text-xs text-slate-400 hover:text-white transition-colors">Change</button>
+                <button onClick={() => setShowScanModal(true)} className="text-[10px] text-slate-500 hover:text-cyan-400 transition-smooth font-medium uppercase tracking-wider">Change</button>
               </div>
             )}
 
             {lastScan && (
-              <div className="glass-panel p-4 rounded-xl border-l-4 border-l-emerald-500 flex items-center justify-between bg-emerald-950/20">
-                <div className="flex items-center gap-3">
-                  <div className="text-emerald-400">✓</div>
-                  <span className="text-sm text-emerald-200">
-                    Successfully analyzed <span className="font-bold text-white">{lastScan.files}</span> files.
-                    Total Complexity: <span className="font-mono">{lastScan.complexity}</span>.
+              <div className="glass-panel p-3 rounded-lg border-l-2 border-l-emerald-500 flex items-center justify-between bg-emerald-500/5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span className="text-xs text-emerald-300">
+                    Analyzed <span className="font-semibold text-white">{lastScan.files}</span> files
+                    <span className="text-emerald-400/60 mx-1.5">·</span>
+                    Complexity: <span className="font-mono">{lastScan.complexity}</span>
                   </span>
                 </div>
-                <button onClick={() => setLastScan(null)} className="text-emerald-400 hover:text-white">×</button>
+                <button onClick={() => setLastScan(null)} className="text-xs text-emerald-400/60 hover:text-white transition-smooth">✕</button>
               </div>
             )}
 
             {error && !health && (
-              <div className="glass-panel p-4 rounded-xl border-l-4 border-l-red-500 bg-red-950/20 text-red-200 text-sm flex items-center gap-3">
-                <span className="text-xl">⚠</span> {error}
+              <div className="glass-panel p-3 rounded-lg border-l-2 border-l-red-500 bg-red-500/5 text-red-200 text-xs flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                {error}
               </div>
             )}
           </div>

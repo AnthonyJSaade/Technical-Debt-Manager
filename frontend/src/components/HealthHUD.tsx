@@ -26,15 +26,15 @@ interface GaugeProps {
   icon: string;
 }
 
-function CircularGauge({ 
-  value, 
-  maxValue, 
-  label, 
-  sublabel, 
-  displayValue, 
-  color, 
-  glowColor, 
-  icon 
+function CircularGauge({
+  value,
+  maxValue,
+  label,
+  sublabel,
+  displayValue,
+  color,
+  glowColor,
+  icon
 }: GaugeProps) {
   const percentage = Math.min((value / maxValue) * 100, 100);
   const data = [
@@ -45,56 +45,60 @@ function CircularGauge({
   return (
     <div className="relative flex flex-col items-center">
       {/* Glow effect */}
-      <div 
-        className="absolute inset-0 blur-2xl opacity-30 rounded-full"
+      <div
+        className="absolute inset-0 blur-2xl opacity-20 rounded-full"
         style={{ background: glowColor }}
       />
-      
-      {/* Gauge */}
-      <div className="relative w-40 h-40">
+
+      {/* Speedometer Gauge - 3/4 Circle */}
+      <div className="relative w-48 h-40 overflow-visible">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            {/* Background ring */}
+            {/* Background arc - 3/4 circle, thicker */}
             <Pie
               data={[{ value: 100 }]}
               cx="50%"
-              cy="50%"
-              innerRadius={55}
-              outerRadius={65}
+              cy="60%"
+              innerRadius={52}
+              outerRadius={68}
+              startAngle={225}
+              endAngle={-45}
               dataKey="value"
               stroke="none"
+              cornerRadius={10}
             >
               <Cell fill="#1f2937" />
             </Pie>
-            {/* Value ring */}
+            {/* Value arc - Colored gauge with rounded caps */}
             <Pie
               data={data}
               cx="50%"
-              cy="50%"
-              innerRadius={55}
-              outerRadius={65}
-              startAngle={90}
-              endAngle={-270}
+              cy="60%"
+              innerRadius={52}
+              outerRadius={68}
+              startAngle={225}
+              endAngle={-45}
               dataKey="value"
               stroke="none"
+              cornerRadius={10}
             >
               <Cell fill={color} />
               <Cell fill="transparent" />
             </Pie>
           </PieChart>
         </ResponsiveContainer>
-        
-        {/* Center content */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl mb-1">{icon}</span>
-          <span className="text-xl font-bold text-white">
+
+        {/* Center content - Positioned higher to not overlap arc ends */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pt-8">
+          <span className="text-2xl font-bold text-white mb-0.5">
             {displayValue}
           </span>
+          <span className="text-lg opacity-60">{icon}</span>
         </div>
       </div>
 
       {/* Labels */}
-      <div className="mt-3 text-center">
+      <div className="mt-2 text-center">
         <p className="text-sm font-semibold text-white">{label}</p>
         <p className="text-xs text-gray-500">{sublabel}</p>
       </div>
@@ -105,8 +109,8 @@ function CircularGauge({
 function SkeletonGauge() {
   return (
     <div className="flex flex-col items-center animate-pulse">
-      <div className="w-40 h-40 rounded-full bg-gray-800/50" />
-      <div className="mt-3 space-y-2">
+      <div className="w-48 h-40 rounded-t-full bg-gray-800/50" />
+      <div className="mt-2 space-y-2">
         <div className="h-4 w-20 bg-gray-800 rounded mx-auto" />
         <div className="h-3 w-16 bg-gray-800/50 rounded mx-auto" />
       </div>
@@ -117,20 +121,20 @@ function SkeletonGauge() {
 export function HealthHUD({ files, isLoading }: HealthHUDProps) {
   // Calculate metrics
   const totalFiles = files.length;
-  
+
   // Average Maintainability Index (0-100, higher is better)
-  const avgMI = totalFiles > 0 
-    ? files.reduce((sum, f) => sum + f.maintainability_index, 0) / totalFiles 
+  const avgMI = totalFiles > 0
+    ? files.reduce((sum, f) => sum + f.maintainability_index, 0) / totalFiles
     : 100;
-  
+
   // Total SQALE Debt (hours)
   const totalDebtHours = files.reduce((sum, f) => sum + f.sqale_debt_hours, 0);
-  
+
   // Average Cognitive Complexity
-  const avgCognitiveComplexity = totalFiles > 0 
-    ? files.reduce((sum, f) => sum + f.cognitive_complexity, 0) / totalFiles 
+  const avgCognitiveComplexity = totalFiles > 0
+    ? files.reduce((sum, f) => sum + f.cognitive_complexity, 0) / totalFiles
     : 0;
-  
+
   // Total Lines of Code
   const totalLOC = files.reduce((sum, f) => sum + f.lines_of_code, 0);
 
