@@ -96,12 +96,11 @@ class JanitorAgent:
             Issue type: 'behavioral_bug', 'typo', 'docs', or 'style'.
         """
         response = await self._ask_llm(
-            CLASSIFY_PROMPT,
-            f"Issue to classify: {bug_desc}"
+            CLASSIFY_PROMPT, f"Issue to classify: {bug_desc}"
         )
         # Normalize response
         issue_type = response.strip().lower().replace(" ", "_")
-        
+
         # Validate - default to behavioral_bug for unknown types
         valid_types = {"behavioral_bug", "typo", "docs", "style"}
         if issue_type not in valid_types:
@@ -171,13 +170,13 @@ class JanitorAgent:
             Tuple of (passed: bool, output: str)
         """
         # Create a combined script that defines the module and runs tests
-        combined = f'''
+        combined = f"""
 # === MODULE CODE ===
 {main_code}
 
 # === TEST CODE ===
 {test_code}
-'''
+"""
         output = self.sandbox.run_code(combined)
 
         # Check if it passed (no error indicators)
@@ -347,4 +346,3 @@ Output only Python code, no markdown."""
             "last_attempt": current_code,
             "issue_type": issue_type,
         }
-

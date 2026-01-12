@@ -132,9 +132,6 @@ export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetwork
         const treeLayout = tree<TreeNode>().size([dimensions.width - 200, SVG_HEIGHT - 150]);
         treeLayout(d3Root);
 
-        // Center the tree horizontally
-        const xOffset = (dimensions.width - (dimensions.width - 200)) / 2; // Roughly center 
-
         // Reposition root to actual center
         d3Root.each(d => {
             // @ts-ignore
@@ -146,9 +143,9 @@ export function StaticNetwork({ files, issues = [], onFileClick }: StaticNetwork
 
     if (!root) return <div className="p-8 text-center text-slate-500 font-light">Loading visualization...</div>;
 
-    const linkGen = linkVertical()
-        .x((d: any) => d.x)
-        .y((d: any) => d.y);
+    const linkGen = linkVertical<unknown, { x: number; y: number }>()
+        .x((d) => d.x)
+        .y((d) => d.y);
 
     return (
         <div ref={containerRef} className="relative h-[600px] bg-[#020617] overflow-hidden">

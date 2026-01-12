@@ -36,16 +36,16 @@ janitor_agent = JanitorAgent(sandbox=docker_sandbox)
 async def lifespan(app: FastAPI):
     """Application lifespan handler - initialize DB on startup."""
     init_db()
-    
+
     # Clear all previous scan data on startup to ensure empty state
     from app.db import engine
     from sqlmodel import delete
     from app.models import FileAnalysis
-    
+
     with Session(engine) as session:
         session.exec(delete(FileAnalysis))
         session.commit()
-        
+
     yield
 
 
@@ -244,9 +244,9 @@ class BrowseResponse(BaseModel):
     entries: list[DirectoryEntry]
 
 
-
 class DirectorySelectionResponse(BaseModel):
     """Response model for directory selection."""
+
     path: str | None
 
 
@@ -263,16 +263,20 @@ def open_native_picker() -> str | None:
     if platform.system() == "Darwin":
         try:
             # Simple AppleScript to choose folder (no System Events needed)
-            script = 'POSIX path of (choose folder with prompt "Select Project Directory")'
+            script = (
+                'POSIX path of (choose folder with prompt "Select Project Directory")'
+            )
             result = subprocess.run(
-                ['osascript', '-e', script],
+                ["osascript", "-e", script],
                 capture_output=True,
                 text=True,
-                timeout=120  # 2 minute timeout for user to select
+                timeout=120,  # 2 minute timeout for user to select
             )
-            
-            print(f"osascript result: returncode={result.returncode}, stdout='{result.stdout}', stderr='{result.stderr}'")
-            
+
+            print(
+                f"osascript result: returncode={result.returncode}, stdout='{result.stdout}', stderr='{result.stderr}'"
+            )
+
             if result.returncode == 0:
                 path = result.stdout.strip()
                 return path if path else None
@@ -290,14 +294,14 @@ def open_native_picker() -> str | None:
     try:
         import tkinter as tk
         from tkinter import filedialog
-        
+
         root = tk.Tk()
-        root.withdraw() # Hide main window
-        root.wm_attributes('-topmost', 1) # Bring to front
-        
+        root.withdraw()  # Hide main window
+        root.wm_attributes("-topmost", 1)  # Bring to front
+
         path = filedialog.askdirectory(title="Select Project Directory")
         root.destroy()
-        
+
         return path if path else None
     except Exception as e:
         print(f"Error opening Tkinter picker: {e}")
@@ -317,8 +321,6 @@ async def select_directory() -> DirectorySelectionResponse:
     """
     selected_path = open_native_picker()
     return DirectorySelectionResponse(path=selected_path)
-
-
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -443,7 +445,7 @@ async def scan_project(
         ScanResponse: Count of files scanned and total complexity.
     """
     import asyncio
-    
+
     # Default to scanning the backend directory
     if request.path is None:
         scan_path = str(Path(__file__).parent.parent)
@@ -457,20 +459,21 @@ async def scan_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Directory not found: {scan_path}",
         )
-    
+
     # ---------------------------------------------------------
     # 1. CACHE EXISTING DESCRIPTIONS
     # ---------------------------------------------------------
     # Fetch all existing records before wiping them
     existing_files = session.exec(select(FileAnalysis)).all()
     description_cache = {
-        f.file_path: f.description 
-        for f in existing_files 
+        f.file_path: f.description
+        for f in existing_files
         if f.description and not f.description.startswith("Description unavailable")
     }
 
     # Clear all previous scan data - each scan is a fresh start
     from sqlalchemy import delete
+
     session.exec(delete(FileAnalysis))  # type: ignore[arg-type]
     session.commit()
 
@@ -479,33 +482,33 @@ async def scan_project(
     # ---------------------------------------------------------
     # Scan and get results (now purely static analysis)
     results = await scan_directory(scan_path)
-    
+
     # ---------------------------------------------------------
     # 3. IDENTIFY MISSING DESCRIPTIONS & PREPARE TASKS
     # ---------------------------------------------------------
     files_needing_ai: list[dict] = []
-    
+
     for result in results:
         fpath = result["file_path"]
-        
+
         # If parser found a docstring, use it (priority)
         if result["description"] and len(result["description"].strip()) > 10:
             continue
-            
+
         # If we have a cached description from previous run, use it
         if fpath in description_cache:
             result["description"] = description_cache[fpath]
         else:
             # No docstring AND no cache -> Needs AI
             files_needing_ai.append(result)
-    
+
     # ---------------------------------------------------------
     # 4. BATCH GENERATE DESCRIPTIONS (Concurrent)
     # ---------------------------------------------------------
     if files_needing_ai:
         # Semaphore for rate limiting
         sem = asyncio.Semaphore(4)
-        
+
         async def generate_for_file(file_result: dict):
             async with sem:
                 try:
@@ -513,9 +516,9 @@ async def scan_project(
                     path = Path(file_result["file_path"])
                     if not path.exists():
                         return
-                    
+
                     content = path.read_text(encoding="utf-8")
-                    if not content.strip(): 
+                    if not content.strip():
                         return
 
                     prompt = (
@@ -524,13 +527,13 @@ async def scan_project(
                         "Start with 'Handles...', 'Provides...', 'Defines...' etc.\n\n"
                         f"File Content (truncated):\n{content[:2000]}"
                     )
-                    
+
                     # 10s timeout per file
                     desc = await complete_text(prompt, timeout=10)
                     file_result["description"] = desc
                 except Exception:
-                     # Silently fail to "Description unavailable" to not break the scan
-                     file_result["description"] = "Description unavailable (AI skipped)"
+                    # Silently fail to "Description unavailable" to not break the scan
+                    file_result["description"] = "Description unavailable (AI skipped)"
 
         # Run concurrent tasks
         ai_tasks = [generate_for_file(f) for f in files_needing_ai]
@@ -554,7 +557,7 @@ async def scan_project(
             sqale_debt_hours=result["sqale_debt_hours"],
             lines_of_code=result["lines_of_code"],
             description=result.get("description"),
-            last_analyzed=datetime.now(UTC)
+            last_analyzed=datetime.now(UTC),
         )
         session.add(file_analysis)
         total_complexity += result["complexity_score"]
@@ -583,7 +586,9 @@ async def test_brain() -> BrainTestResponse:
         BrainTestResponse: Success status and response message.
     """
     try:
-        response = await complete_text("Say 'Hello from Claude Opus!' in exactly those words.")
+        response = await complete_text(
+            "Say 'Hello from Claude Opus!' in exactly those words."
+        )
         return BrainTestResponse(success=True, message=response)
     except Exception as e:
         return BrainTestResponse(success=False, message=f"Error: {str(e)}")
@@ -752,9 +757,9 @@ Examples:
                     clean_response = lines[1]
                     if clean_response.startswith("json"):
                         clean_response = clean_response[4:]
-            
+
             result = json.loads(clean_response.strip())
-            
+
             return DiagnoseResponse(
                 is_healthy=result.get("is_healthy", False),
                 issue=result.get("issue", "Analysis complete"),
@@ -848,32 +853,40 @@ Only respond with JSON, no markdown."""
                 result = json.loads(clean_response.strip())
 
                 if result.get("has_bug", False):
-                    issues.append(FileIssue(
-                        file_path=file.file_path,
-                        file_name=file_path.name,
-                        issue=result.get("issue", "Potential issue detected"),
-                        severity=result.get("severity", "medium"),
-                        cognitive_complexity=file.cognitive_complexity,
-                        maintainability_index=file.maintainability_index,
-                    ))
+                    issues.append(
+                        FileIssue(
+                            file_path=file.file_path,
+                            file_name=file_path.name,
+                            issue=result.get("issue", "Potential issue detected"),
+                            severity=result.get("severity", "medium"),
+                            cognitive_complexity=file.cognitive_complexity,
+                            maintainability_index=file.maintainability_index,
+                        )
+                    )
             except json.JSONDecodeError:
                 # If parsing fails but response mentions a bug, still include it
                 if "bug" in response.lower() or "error" in response.lower():
-                    issues.append(FileIssue(
-                        file_path=file.file_path,
-                        file_name=file_path.name,
-                        issue=response[:150] if response else "Analysis inconclusive",
-                        severity="medium",
-                        cognitive_complexity=file.cognitive_complexity,
-                        maintainability_index=file.maintainability_index,
-                    ))
+                    issues.append(
+                        FileIssue(
+                            file_path=file.file_path,
+                            file_name=file_path.name,
+                            issue=(
+                                response[:150] if response else "Analysis inconclusive"
+                            ),
+                            severity="medium",
+                            cognitive_complexity=file.cognitive_complexity,
+                            maintainability_index=file.maintainability_index,
+                        )
+                    )
 
         except Exception:
             continue
 
     # Sort by severity (high first) then by maintainability index (lower first)
     severity_order = {"high": 0, "medium": 1, "low": 2}
-    issues.sort(key=lambda x: (severity_order.get(x.severity, 1), x.maintainability_index))
+    issues.sort(
+        key=lambda x: (severity_order.get(x.severity, 1), x.maintainability_index)
+    )
 
     return DiagnoseAllResponse(
         issues=issues,
@@ -943,9 +956,7 @@ async def download_fix(request: DownloadFixRequest) -> StreamingResponse:
     return StreamingResponse(
         file_content,
         media_type="application/octet-stream",
-        headers={
-            "Content-Disposition": f'attachment; filename="{fixed_filename}"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{fixed_filename}"'},
     )
 
 
@@ -985,13 +996,17 @@ async def browse_directory(request: BrowseRequest) -> BrowseResponse:
         )
 
     # Get parent path (None if at root)
-    parent_path = str(current_path.parent) if current_path.parent != current_path else None
+    parent_path = (
+        str(current_path.parent) if current_path.parent != current_path else None
+    )
 
     # List directory contents
     entries: list[DirectoryEntry] = []
 
     try:
-        for entry in sorted(current_path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+        for entry in sorted(
+            current_path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())
+        ):
             # Skip hidden files/folders (starting with .)
             if entry.name.startswith("."):
                 continue

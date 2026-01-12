@@ -32,21 +32,18 @@ async def complete_text(prompt: str, timeout: int = 30) -> str:
         Exception: If the API call fails or times out.
     """
     import asyncio
-    
+
     try:
         response = await asyncio.wait_for(
             client.messages.create(
                 model=MODEL,
                 max_tokens=4096,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "user", "content": prompt}],
             ),
-            timeout=timeout
+            timeout=timeout,
         )
 
         # Anthropic returns response.content as a list of content blocks
         return response.content[0].text if response.content else ""
     except asyncio.TimeoutError:
         raise Exception("LLM request timed out")
-

@@ -17,53 +17,87 @@ from tree_sitter import Language, Parser, Node
 
 # Control flow structures that add to cognitive complexity
 # Each of these adds +1 base complexity + nesting depth penalty
-CONTROL_FLOW_NODES = frozenset({
-    "if_statement",
-    "for_statement",
-    "while_statement",
-    "try_statement",
-    "except_clause",
-    "with_statement",
-    "match_statement",  # Python 3.10+
-    "else_clause",      # else: branch (counts as +1 at current depth)
-    "elif_clause",      # elif: branch (counts as +1 at current depth)
-})
+CONTROL_FLOW_NODES = frozenset(
+    {
+        "if_statement",
+        "for_statement",
+        "while_statement",
+        "try_statement",
+        "except_clause",
+        "with_statement",
+        "match_statement",  # Python 3.10+
+        "else_clause",  # else: branch (counts as +1 at current depth)
+        "elif_clause",  # elif: branch (counts as +1 at current depth)
+    }
+)
 
 # Operators for Halstead calculation
-OPERATOR_NODES = frozenset({
-    "binary_operator",
-    "unary_operator",
-    "comparison_operator",
-    "boolean_operator",
-    "augmented_assignment",
-    "assignment",
-    "not_operator",
-})
+OPERATOR_NODES = frozenset(
+    {
+        "binary_operator",
+        "unary_operator",
+        "comparison_operator",
+        "boolean_operator",
+        "augmented_assignment",
+        "assignment",
+        "not_operator",
+    }
+)
 
 # Keywords that count as operators
-OPERATOR_KEYWORDS = frozenset({
-    "if", "else", "elif", "for", "while", "try", "except", "finally",
-    "with", "return", "yield", "raise", "break", "continue", "pass",
-    "import", "from", "as", "def", "class", "lambda", "and", "or", "not",
-    "in", "is", "await", "async", "match", "case",
-})
+OPERATOR_KEYWORDS = frozenset(
+    {
+        "if",
+        "else",
+        "elif",
+        "for",
+        "while",
+        "try",
+        "except",
+        "finally",
+        "with",
+        "return",
+        "yield",
+        "raise",
+        "break",
+        "continue",
+        "pass",
+        "import",
+        "from",
+        "as",
+        "def",
+        "class",
+        "lambda",
+        "and",
+        "or",
+        "not",
+        "in",
+        "is",
+        "await",
+        "async",
+        "match",
+        "case",
+    }
+)
 
 # Operand node types
-OPERAND_NODES = frozenset({
-    "identifier",
-    "integer",
-    "float",
-    "string",
-    "true",
-    "false",
-    "none",
-})
+OPERAND_NODES = frozenset(
+    {
+        "identifier",
+        "integer",
+        "float",
+        "string",
+        "true",
+        "false",
+        "none",
+    }
+)
 
 
 @dataclass
 class AnalysisResult:
     """Results from code analysis."""
-    
+
     node_count: int
     complexity_score: int  # Legacy cyclomatic complexity
     cognitive_complexity: int
@@ -124,11 +158,13 @@ class CodeParser:
         """
         # Nodes whose block children should NOT increment nesting depth
         # (encapsulation patterns, not complexity nesting)
-        ENCAPSULATION_NODES = frozenset({
-            "function_definition",
-            "class_definition",
-            "module",
-        })
+        ENCAPSULATION_NODES = frozenset(
+            {
+                "function_definition",
+                "class_definition",
+                "module",
+            }
+        )
 
         complexity = 0
 
@@ -186,7 +222,7 @@ class CodeParser:
                 keyword = node.text.decode("utf-8")
                 if keyword in OPERATOR_KEYWORDS:
                     operators.append(keyword)
-            
+
             # Count operands
             if node.type in OPERAND_NODES:
                 operand_text = node.text.decode("utf-8") if node.text else node.type
@@ -198,9 +234,9 @@ class CodeParser:
         traverse(root)
 
         n1 = len(operators)  # Total operators
-        n2 = len(operands)   # Total operands
+        n2 = len(operands)  # Total operands
         unique_n1 = len(set(operators))  # Unique operators
-        unique_n2 = len(set(operands))   # Unique operands
+        unique_n2 = len(set(operands))  # Unique operands
 
         # Avoid log(0)
         vocabulary = unique_n1 + unique_n2
@@ -213,10 +249,7 @@ class CodeParser:
         return volume, n1, n2
 
     def _calculate_maintainability_index(
-        self,
-        halstead_volume: float,
-        cyclomatic_complexity: int,
-        lines_of_code: int
+        self, halstead_volume: float, cyclomatic_complexity: int, lines_of_code: int
     ) -> float:
         """
         Calculate the Maintainability Index (0-100 scale).

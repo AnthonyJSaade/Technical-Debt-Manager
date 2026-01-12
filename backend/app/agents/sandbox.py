@@ -79,4 +79,3 @@ class DockerSandbox:
             return f"Error: Docker API error - {e}"
         except Exception as e:
             return f"Error: {str(e)}"
-

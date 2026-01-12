@@ -8,4 +8,3 @@ from .parser import CodeParser
 from .scanner import scan_directory
 
 __all__ = ["CodeParser", "scan_directory"]
-
