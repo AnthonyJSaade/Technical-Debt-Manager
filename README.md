@@ -4,7 +4,7 @@
 
 ### Mission Control for Technical Debt
 
-**An Agentic IDE tool that visualizes complexity and autonomously refactors Python code using Claude 3 Opus.**
+**An Agentic IDE tool that visualizes complexity and autonomously refactors Python code using Claude 4.5 Opus.**
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://reactjs.org/)
