@@ -34,7 +34,7 @@ Most code analysis tools give you **numbers**. RepoView gives you **understandin
 
 ---
 
-## ✨ Features
+##  Features
 
 ### 📊 Health Metrics Dashboard
 Speedometer-style gauges showing real-time codebase health:
@@ -42,7 +42,7 @@ Speedometer-style gauges showing real-time codebase health:
 - **Technical Debt** — SQALE hours of remediation work
 - **Cognitive Load** — Average function complexity
 
-### 🗺️ Visual Code Map
+###  Visual Code Map
 Interactive tree visualization of your project structure:
 - Files sized by complexity
 - Color-coded by health (green → yellow → red)
@@ -56,7 +56,7 @@ Autonomous bug-fixing powered by Claude 3 Opus:
 3. **Fix** — Apply targeted refactoring
 4. **Verify** — Confirm fix passes tests
 
-### 🔒 Safe Mode
+###  Safe Mode
 Never apply changes blindly:
 - Side-by-side diff view
 - Download patch files
@@ -64,7 +64,7 @@ Never apply changes blindly:
 
 ---
 
-## 🏗️ Architecture Decisions
+##  Architecture Decisions
 
 ### Why Tree-sitter?
 
@@ -102,19 +102,19 @@ Opus consistently outperforms cheaper models on this reasoning chain. For simple
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Layer | Technology |
 |-------|------------|
 | **Frontend** | React 18, TypeScript, Tailwind CSS, Recharts |
 | **Backend** | Python 3.11, FastAPI, Tree-sitter |
-| **AI** | Anthropic Claude 3 Opus |
+| **AI** | Anthropic Claude 4.5 Opus |
 | **Sandbox** | Docker SDK (isolated code execution) |
 | **Database** | SQLite (metric history) |
 
 ---
 
-## ⚡ Quick Start
+##  Quick Start
 
 ```bash
 # Clone the repository
@@ -147,7 +147,7 @@ Open [http://localhost:5173](http://localhost:5173) and click **Scan Project** t
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 Technical-Debt-Manager/
@@ -168,7 +168,7 @@ Technical-Debt-Manager/
 
 ---
 
-## 🗺️ Roadmap
+##  Roadmap
 
 - [ ] TypeScript support via Tree-sitter
 - [ ] Git integration (show debt trends over commits)
@@ -178,16 +178,8 @@ Technical-Debt-Manager/
 
 ---
 
-## 📄 License
+##  License
 
 MIT License — see [LICENSE](LICENSE) for details.
 
----
 
-<div align="center">
-
-**Built with ❤️ for developers who inherit legacy code.**
-
-[Report Bug](https://github.com/AnthonyJSaade/Technical-Debt-Manager/issues) · [Request Feature](https://github.com/AnthonyJSaade/Technical-Debt-Manager/issues)
-
-</div>
